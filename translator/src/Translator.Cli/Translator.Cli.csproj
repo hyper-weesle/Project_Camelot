@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="YamlDotNet" Version="15.1.2" />
+    <ProjectReference Include="../../../../YamlDotNet/YamlDotNet/YamlDotNet.Local.csproj" />
   </ItemGroup>
 
 </Project>
