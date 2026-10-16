@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <dolphin/gx.h>
 
 #include <utility>
@@ -55,7 +56,22 @@ struct TextureRef {
   , size(size)
   , format(format)
   , mipCount(mipCount)
-  , gxFormat(gxFormat) {}
+  , gxFormat(gxFormat) {
+    s_liveCount.fetch_add(1, std::memory_order_relaxed);
+    s_liveBytes.fetch_add(approx_bytes(), std::memory_order_relaxed);
+  }
+  ~TextureRef() {
+    s_liveCount.fetch_sub(1, std::memory_order_relaxed);
+    s_liveBytes.fetch_sub(approx_bytes(), std::memory_order_relaxed);
+  }
+  TextureRef(const TextureRef&) = delete;
+  TextureRef& operator=(const TextureRef&) = delete;
+  uint64_t approx_bytes() const noexcept {
+    return static_cast<uint64_t>(size.width) * size.height * size.depthOrArrayLayers * 4u * (mipCount > 1 ? 4u : 3u) / 3u;
+  }
+  // Live GPU texture accounting (diagnostics; see aurora_texture_stats).
+  static inline std::atomic<uint64_t> s_liveCount{0};
+  static inline std::atomic<uint64_t> s_liveBytes{0};
 };
 
 TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mips, u32 gxFormat,

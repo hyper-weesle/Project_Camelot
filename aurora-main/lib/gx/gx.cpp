@@ -609,7 +609,7 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
   if (canCacheUpload) {
     store_cached_texture(obj, handle);
     if (canUseSourceCache) {
-      if (s_staticTextureSourceCache.size() >= 512) {
+      if (s_staticTextureSourceCache.size() >= 256) {
         absl::erase_if(s_staticTextureSourceCache, [](const auto& item) { return item.second.handle.use_count() <= 1; });
         clear_static_source_front_cache();
       }
@@ -1036,7 +1036,7 @@ void evict_tlut_object(u32 tlutObjId) noexcept {
 
 // GXInitTexObj mints a fresh object id per call and nothing ever emits DESTROY_TEXOBJ, so the texture object memo used to be bounded only by the fact that GXInvalidateTexAll dropped it six times a frame.
 constexpr u64 kTextureCacheIdleRevisions = 128;
-constexpr size_t kTextureObjectCacheSoftLimit = 1024;
+constexpr size_t kTextureObjectCacheSoftLimit = 256;
 constexpr size_t kTlutObjectCacheSoftLimit = 512;
 constexpr size_t kTexObjSourceKeySoftLimit = 2048;
 
@@ -2156,3 +2156,12 @@ wgpu::SamplerDescriptor aurora::gfx::TextureBind::get_descriptor() const noexcep
       .maxAnisotropy = maxAnisotropy,
   };
 } // namespace aurora::gx
+
+extern "C" void aurora_texture_cache_stats(uint64_t* out) {
+  using namespace aurora::gx;
+  out[0] = s_textureObjectCaches.size();
+  out[1] = s_staticTextureSourceCache.size();
+  out[2] = s_texObjSourceKeys.size();
+  out[3] = s_staticTextureCacheValidationRevision;
+  out[4] = g_gxState.copyTextures.size();
+}

@@ -606,7 +606,7 @@ extern "C" void OSSuspendThread_HLE_801aa6a8(CpuContext* ctx)
 
     OS__RestoreInterrupts_801a65d4(irqState);
 }
-// SATBK-UNMAPPED(MKW 801aa6a8): PPC_NATIVE_OVERRIDE_VOID(801AA6A8, OSSuspendThread_HLE_801aa6a8, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(80545504, OSSuspendThread_HLE_801aa6a8, (CpuContext* ctx), (ctx));
 
 // OSResumeThread (0x801aa58c)
 // Resumes a suspended thread, making it eligible for scheduling.

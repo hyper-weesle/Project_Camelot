@@ -404,8 +404,8 @@ extern "C" uint32_t OSSetPowerCallback_801ab75c(CpuContext* ctx)
     constexpr uint32_t kDefaultCallbackAddr = 0x805469F4u; // SatBK equivalent of MKW 0x801ABC0C
 
     // Offsets from R13 (SDA2)
-    const uint32_t kCallbackPtrAddr = r13 - 0x62b8u;
-    const uint32_t kHandlerActiveAddr = r13 - 0x62c0u;
+    const uint32_t kCallbackPtrAddr = r13 - 0x15b0u;
+    const uint32_t kHandlerActiveAddr = r13 - 0x15b8u;
 
     RT_LOG(RT_TAG_OS) << "OSSetPowerCallback_801ab75c called: newCB=0x"
               << std::hex << newCallback << std::dec << std::endl;
@@ -499,9 +499,9 @@ extern "C" int32_t IPCCltInit_80193478(CpuContext* ctx)
     InvokeIndirectCpu(0x8056FB94u, ctx);
 
     // Advance the buffer lo pointer by 0x1000 (iosHeap size), matching real IPCCltInit.
-    uint32_t bufferLo = Memory::Read32(ctx->gpr[13] + -25620); // 0x80805594 at r13-0x6414
+    uint32_t bufferLo = Memory::Read32(ctx->gpr[13] + -4396); // 0x80805594 at r13-0x6414
     uint32_t newBufLo = bufferLo + 0x1000; // Advance by 4KB for iosHeap
-    Memory::Write32(ctx->gpr[13] + -25620, newBufLo);
+    Memory::Write32(ctx->gpr[13] + -4396, newBufLo);
     
     RT_LOG(RT_TAG_OS) << "IPCCltInit: IPC buffer lo advanced from 0x" << std::hex << bufferLo
               << " to 0x" << newBufLo << std::dec << std::endl;

@@ -108,6 +108,17 @@ extern "C" void IOS_IoctlAsync_80194158(CpuContext* ctx)
     }
 
     const int32_t result = NAND_IOS_Ioctl_HLE(fd, cmd, inBuf, inLen, outBuf, outLen);
+    {
+        static int logged = 0;
+        static uint32_t lastFd = ~0u, lastCmd = ~0u;
+        if ((fd != lastFd || cmd != lastCmd) && logged < 40) {
+            ++logged;
+            lastFd = fd;
+            lastCmd = cmd;
+            std::fprintf(stderr, "[ios] IoctlAsync fd=%u cmd=%u in=%08X/%u out=%08X/%u -> %d\n", fd, cmd, inBuf, inLen,
+                         outBuf, outLen, result);
+        }
+    }
     CompleteAsync(ctx, callback, result, callbackArg); // Success
 }
 PPC_NATIVE_OVERRIDE_VOID(80570C88, IOS_IoctlAsync_80194158, (CpuContext* ctx), (ctx));
@@ -190,6 +201,15 @@ extern "C" void IOS_IoctlvAsync_HLE(CpuContext* ctx)
     }
 
     const int32_t result = NAND_IOS_Ioctlv_HLE(fd, cmd, numIn, numOut, vectorPtr);
+    {
+        static int logged = 0;
+        if (logged < 40) {
+            ++logged;
+            const uint32_t v0 = numIn + numOut ? Memory::Read32(vectorPtr) : 0;
+            std::fprintf(stderr, "[ios] IoctlvAsync fd=%u cmd=%u in=%u out=%u v0=%08X '%s' cb=%08X -> %d\n", fd, cmd,
+                         numIn, numOut, v0, v0 ? (const char*)Memory::GetPointer(v0) : "", callback, result);
+        }
+    }
     CompleteAsync(ctx, callback, result, callbackArg);
 }
 PPC_NATIVE_OVERRIDE_VOID(8057102C, IOS_IoctlvAsync_HLE, (CpuContext* ctx), (ctx));

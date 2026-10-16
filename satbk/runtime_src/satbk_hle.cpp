@@ -63,6 +63,7 @@ REGISTER_NATIVE_FUNCTION_AS(0x80577614, SatbkRSOLinkList_Checked, "SatbkRSOLinkL
 
 void VI_HLE_ProcessRetracesDeferred(int maxToProcess);
 extern "C" void SelectThread_801a9c08(CpuContext* ctx);
+extern "C" void SatbkRebuildRunQueueBits();
 extern "C" int32_t OS__DisableInterrupts_801a65ac();
 extern "C" int32_t OS__RestoreInterrupts_801a65d4(int32_t level);
 
@@ -86,6 +87,7 @@ extern "C" void SatbkPreemptionPoint() {
     OS_HLE_ProcessAlarmsDeferred(8);
     Audio_HLE_PollDeferred();
     constexpr uint32_t kRunQueueBits = 0x808050E8u;
+    SatbkRebuildRunQueueBits();
     if (Memory::Read32(kRunQueueBits) != 0) {
         const CpuContext saved = *cpu;
         const int32_t level = OS__DisableInterrupts_801a65ac();

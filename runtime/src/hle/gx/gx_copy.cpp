@@ -115,6 +115,7 @@ PPC_NATIVE_OVERRIDE_VOID(8056AE70, GX__SetDispCopyGamma_8016fc24, (uint32_t g), 
 extern "C" void GX__CopyDisp_8016fc38(uint32_t da, uint32_t c) {
     EnsureAuroraFrameActive();
     SatbkDevTestQuad();
+    GXInvalidateTexAll();
     // GX copies are FIFO-ordered on hardware. Drain submitted draws before
     // resolving the EFB so high-level copies see the same contents.
     GXDrawDone();

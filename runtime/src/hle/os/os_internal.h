@@ -46,7 +46,7 @@ constexpr uint32_t kSchedulerPendingFlagAddr = 0x808050E8u;
 // RVL OS uses this as the OSDisableScheduler/OSEnableScheduler nesting count.
 // SelectThread exits early while the count is non-zero.
 constexpr uint32_t kSchedulerIdleFlagAddr = 0x808050E0u;
-constexpr uint32_t kAlarmQueueOffsetFromR13 = 0x6360u;
+constexpr uint32_t kAlarmQueueOffsetFromR13 = 0x1660u;
 
 constexpr uint32_t kThreadStateOffset = 0x2C8u;
 constexpr uint32_t kThreadAttrOffset = 0x2CAu;

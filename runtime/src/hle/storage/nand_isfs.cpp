@@ -831,15 +831,15 @@ static bool g_isfsInitialized = false;
 // load-bearing and must not be "tidied". Names come from the RVL IPC/ISFS
 // sources; only the naming changed here, never a value.
 namespace {
-constexpr uint32_t kIsfsFdSda1Offset = 29408u;              // __ISFS_fd
-constexpr uint32_t kIsfsPathSda1Offset = 29400u;            // __ISFS_path ("/dev/fs")
-constexpr uint32_t kIpcBufferLoSda1Offset = 25620u;         // IPC buffer window, low
-constexpr uint32_t kIpcBufferHiSda1Offset = 25616u;         // IPC buffer window, high
-constexpr uint32_t kIpcArenaLoSda1Offset = 25732u;          // __IPCArenaLo
-constexpr uint32_t kIpcArenaHiSda1Offset = 25728u;          // __IPCArenaHi
-constexpr uint32_t kIsfsHeapHandleSda1Offset = 25724u;      // ISFS heap handle
-constexpr uint32_t kIsfsHeapBaseSda1Offset = 25740u;        // ISFS heap base address
-constexpr uint32_t kIsfsHeapInitializedSda1Offset = 25744u; // ISFS heap created flag
+constexpr uint32_t kIsfsFdSda1Offset = 17536u;              // __ISFS_fd
+constexpr uint32_t kIsfsPathSda1Offset = 17528u;            // __ISFS_path ("/dev/fs")
+constexpr uint32_t kIpcBufferLoSda1Offset = 4396u;         // IPC buffer window, low
+constexpr uint32_t kIpcBufferHiSda1Offset = 4392u;         // IPC buffer window, high
+constexpr uint32_t kIpcArenaLoSda1Offset = 6588u;          // __IPCArenaLo
+constexpr uint32_t kIpcArenaHiSda1Offset = 6584u;          // __IPCArenaHi
+constexpr uint32_t kIsfsHeapHandleSda1Offset = 6580u;      // ISFS heap handle
+constexpr uint32_t kIsfsHeapBaseSda1Offset = 6596u;        // ISFS heap base address
+constexpr uint32_t kIsfsHeapInitializedSda1Offset = 6600u; // ISFS heap created flag
 } // namespace
 
 static void WriteGuestString(uint32_t address, const char* value) {

@@ -199,11 +199,11 @@ extern "C" uint32_t __OSInitSTM_HLE_801ab848(CpuContext* ctx)
     // r13-0x62c4=/dev/stm/eventhook.
     try {
         // Mark STM as initialized
-        ::Memory::Write32(r13 - 0x62ccu, 1);
+        ::Memory::Write32(r13 - 0x15c4u, 1);
 
         // Fake non-zero handles so callers' zero-checks pass.
-        ::Memory::Write32(r13 - 0x62c8u, 0x00535401); // "ST\x01"
-        ::Memory::Write32(r13 - 0x62c4u, 0x00535402); // "ST\x02"
+        ::Memory::Write32(r13 - 0x15c0u, 0x00535401); // "ST\x01"
+        ::Memory::Write32(r13 - 0x15bcu, 0x00535402); // "ST\x02"
 
         // Default Power/Reset callback pointers are left unset; safe since we never fire
         // the STM hardware interrupt that would invoke them.

@@ -50,6 +50,7 @@ SatbkDevtools g_devtools;
 // GXCopyDisp, using Aurora's GX API directly. Distinguishes "Aurora renders nothing" from
 // "the game's draws are wrong".
 #include <dolphin/gx.h>
+#include <aurora/gfx.h>
 
 // SATBK_GXTRACE=<first>,<count>: trace GX calls during display-copy frames [first, first+count).
 static std::atomic<long> g_copyFrames{0};
@@ -68,11 +69,30 @@ extern "C" bool SatbkGxTraceOn() {
     return first >= 0 && f >= first && f < first + count;
 }
 
+extern "C" void aurora_texture_stats(uint64_t* count, uint64_t* bytes);
+extern "C" void aurora_texture_cache_stats(uint64_t* out);
+
 extern "C" void SatbkDevTestQuad() {
     if (SatbkGxTraceOn()) {
         std::fprintf(stderr, "[gxtrace] ==== CopyDisp frame %ld ====\n", g_copyFrames.load());
     }
-    g_copyFrames.fetch_add(1, std::memory_order_relaxed);
+    const long frame = g_copyFrames.fetch_add(1, std::memory_order_relaxed);
+    static const bool texStats = std::getenv("SATBK_TEXSTATS") != nullptr;
+    if (texStats && frame % 10 == 0) {
+        uint64_t count = 0, bytes = 0;
+        aurora_texture_stats(&count, &bytes);
+        const AuroraStats* st = aurora_get_stats();
+        std::fprintf(stderr,
+                     "[satbk] frame %ld: %llu live textures, ~%llu MB; pipelines queued %u created %u; draws %u; "
+                     "vert %u uni %u idx %u stor %u texup %u\n",
+                     frame, static_cast<unsigned long long>(count), static_cast<unsigned long long>(bytes >> 20),
+                     st->queuedPipelines, st->createdPipelines, st->drawCallCount, st->lastVertSize,
+                     st->lastUniformSize, st->lastIndexSize, st->lastStorageSize, st->lastTextureUploadSize);
+        uint64_t c[5] = {};
+        aurora_texture_cache_stats(c);
+        std::fprintf(stderr, "[satbk]   texobj %llu source %llu keys %llu rev %llu copies %llu\n", (unsigned long long)c[0],
+                     (unsigned long long)c[1], (unsigned long long)c[2], (unsigned long long)c[3], (unsigned long long)c[4]);
+    }
     static const bool enabled = std::getenv("SATBK_TESTQUAD") != nullptr;
     if (!enabled) {
         return;

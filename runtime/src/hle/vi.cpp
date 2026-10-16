@@ -834,6 +834,8 @@ extern "C" void VISetBlack_HLE_801bab2c(CpuContext* ctx)
 }
 PPC_NATIVE_OVERRIDE_VOID(80554BE0, VISetBlack_HLE_801bab2c, (CpuContext* ctx), (ctx));
 
+namespace OsHleInternal { extern std::atomic<bool> g_interrupts_enabled; }
+extern "C" void VIWaitForRetrace_HLE_801b99ec(CpuContext* ctx);
 extern "C" void VIGetRetraceCount_HLE_801baba4(CpuContext* ctx)
 {
     uint32_t count = 0;
@@ -841,6 +843,21 @@ extern "C" void VIGetRetraceCount_HLE_801baba4(CpuContext* ctx)
         std::lock_guard<std::mutex> lock(g_viMutex);
         EnsureInitializedLocked();
         count = g_vi.retraceCount;
+    }
+    {
+        static thread_local uint32_t lastThread = 0, lastCount = 0, repeats = 0;
+        const uint32_t thread = Memory::Read32(0x800000E4u);
+        repeats = (thread == lastThread && count == lastCount) ? repeats + 1 : 0;
+        if (ctx != nullptr && thread != 0 && repeats >= 3 &&
+            Fiber::GuestFiberManager::IsInitialized() && !VI_HLE_IsAdvancingRetrace() &&
+            OsHleInternal::g_interrupts_enabled.load(std::memory_order_acquire)) {
+            VIWaitForRetrace_HLE_801b99ec(ctx);
+            std::lock_guard<std::mutex> lock(g_viMutex);
+            count = g_vi.retraceCount;
+            repeats = 0;
+        }
+        lastThread = thread;
+        lastCount = count;
     }
     ViSetR3(ctx, count);
     VI_HLE_PollRetrace(ctx);

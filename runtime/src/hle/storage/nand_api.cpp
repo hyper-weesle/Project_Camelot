@@ -95,7 +95,7 @@ PPC_NATIVE_OVERRIDE(803D0348, NANDInit_HLE, int32_t, (void), ());
 extern "C" int32_t NANDGetCurrentDir_HLE(uint32_t outPathPtr) {
     return WriteNandDataDir(outPathPtr);
 }
-PPC_NATIVE_OVERRIDE(803D0828, NANDGetCurrentDir_HLE, int32_t, (uint32_t outPathPtr), (outPathPtr));
+// SATBK: 0x803D0828 is nandChangeDirCallback here, not NANDGetCurrentDir; leave it translated.
 
 extern "C" int32_t NANDCheck_HLE(uint32_t blockSize, uint32_t blockCount, uint32_t outResults) {
     const int32_t result = NandCheckContract::WriteHealthyResult(
@@ -124,6 +124,7 @@ extern "C" int32_t NANDOpen_HLE(uint32_t pathPtr, uint32_t fileInfoPtr, uint32_t
         LogNandError("NANDOpen", "invalid params: path=%p fileInfo=0x%08X", path, fileInfoPtr);
         return NAND_RESULT_INVALID;
     }
+    std::fprintf(stderr, "[nand] NANDOpen %s mode=%u\n", path, mode);
 
     const std::filesystem::path hostPath = TranslateNandPath(path);
 

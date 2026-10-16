@@ -127,8 +127,28 @@ extern "C" void func_8053DAB0(CpuContext* ctx);
 // Fibers instead of blocking InvokeIndirectJump.
 // ============================================================================
 
+extern "C" void SatbkRebuildRunQueueBits() {
+    uint32_t mask = 0;
+    for (uint32_t prio = 0; prio < 32; ++prio) {
+        if (::Memory::Read32(kThreadQueueArrayAddr + prio * 8u) != 0) {
+            mask |= 1u << (31u - prio);
+        }
+    }
+    const uint32_t old = ::Memory::Read32(kSchedulerPendingFlagAddr);
+    if (old != mask) {
+        static int logged = 0;
+        if (logged < 20) {
+            ++logged;
+            RT_LOG(RT_TAG_OS) << "[satbk] RunQueueBits 0x" << std::hex << old << " -> 0x" << mask << std::dec
+                              << std::endl;
+        }
+        ::Memory::Write32(kSchedulerPendingFlagAddr, mask);
+    }
+}
+
 extern "C" void SelectThread_801a9c08(CpuContext* ctx)
 {
+    SatbkRebuildRunQueueBits();
     CpuContext* cpu = ctx ? ctx : &GetPersistentCpuContext();
     const uint32_t forceSwitch = cpu->gpr[3];
 

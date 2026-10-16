@@ -1768,3 +1768,8 @@ void aurora_pop_debug_group() {
 }
 
 const AuroraStats* aurora_get_stats() { return &aurora::gfx::g_stats; }
+
+extern "C" void aurora_texture_stats(uint64_t* count, uint64_t* bytes) {
+  *count = aurora::gfx::TextureRef::s_liveCount.load(std::memory_order_relaxed);
+  *bytes = aurora::gfx::TextureRef::s_liveBytes.load(std::memory_order_relaxed);
+}

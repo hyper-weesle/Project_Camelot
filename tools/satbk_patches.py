@@ -405,3 +405,174 @@ for _root, _dirs, _files in os.walk('src/hle/gx'):
         if _n != _s:
             _n = _n.replace('#include <cstdlib>\n', '#include <cstdlib>\nextern "C" bool SatbkGxTraceOn();\n', 1)
             open(_p, 'w').write(_n)
+# Scheduler self-heal: RunQueueBits must equal the set of non-empty run queues. Some path in this
+# game's SDK leaves a thread queued without its bit (seen: the asset loader threads after the
+# title movie, which then never run). Rebuild the mask from the queues before every decision.
+patch('src/hle/os/os_scheduler.cpp', [
+    ('''extern "C" void SelectThread_801a9c08(CpuContext* ctx)
+{''', '''extern "C" void SatbkRebuildRunQueueBits() {
+    uint32_t mask = 0;
+    for (uint32_t prio = 0; prio < 32; ++prio) {
+        if (::Memory::Read32(kThreadQueueArrayAddr + prio * 8u) != 0) {
+            mask |= 1u << (31u - prio);
+        }
+    }
+    const uint32_t old = ::Memory::Read32(kSchedulerPendingFlagAddr);
+    if (old != mask) {
+        static int logged = 0;
+        if (logged < 20) {
+            ++logged;
+            RT_LOG(RT_TAG_OS) << "[satbk] RunQueueBits 0x" << std::hex << old << " -> 0x" << mask << std::dec
+                              << std::endl;
+        }
+        ::Memory::Write32(kSchedulerPendingFlagAddr, mask);
+    }
+}
+
+extern "C" void SelectThread_801a9c08(CpuContext* ctx)
+{
+    SatbkRebuildRunQueueBits();'''),
+])
+# VIGetRetraceCount polling. The game's frame pacing busy-waits on VIGetRetraceCount. On the Wii
+# the main thread also sleeps inside GX sync while the GPU draws, which is when lower-priority
+# threads (the CRI file/decode server) run; with HLE GX nothing ever sleeps, so those threads
+# starve and loading never finishes. When the same thread polls an unchanged count with
+# interrupts enabled, wait for the next retrace (VIWaitForRetrace) so other threads can run.
+patch('src/hle/vi.cpp', [
+    ('''extern "C" void VIGetRetraceCount_HLE_801baba4(CpuContext* ctx)
+{
+    uint32_t count = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_viMutex);
+        EnsureInitializedLocked();
+        count = g_vi.retraceCount;
+    }''', '''namespace OsHleInternal { extern std::atomic<bool> g_interrupts_enabled; }
+extern "C" void VIWaitForRetrace_HLE_801b99ec(CpuContext* ctx);
+extern "C" void VIGetRetraceCount_HLE_801baba4(CpuContext* ctx)
+{
+    uint32_t count = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_viMutex);
+        EnsureInitializedLocked();
+        count = g_vi.retraceCount;
+    }
+    {
+        static thread_local uint32_t lastThread = 0, lastCount = 0, repeats = 0;
+        const uint32_t thread = Memory::Read32(0x800000E4u);
+        repeats = (thread == lastThread && count == lastCount) ? repeats + 1 : 0;
+        if (ctx != nullptr && thread != 0 && repeats >= 3 &&
+            Fiber::GuestFiberManager::IsInitialized() && !VI_HLE_IsAdvancingRetrace() &&
+            OsHleInternal::g_interrupts_enabled.load(std::memory_order_acquire)) {
+            VIWaitForRetrace_HLE_801b99ec(ctx);
+            std::lock_guard<std::mutex> lock(g_viMutex);
+            count = g_vi.retraceCount;
+            repeats = 0;
+        }
+        lastThread = thread;
+        lastCount = count;
+    }'''),
+])
+# OSSuspendThread: upstream hooks it at an MKW address the remap could not place; without the HLE the
+# translated SDK version never parks the guest fiber, so OSResumeThread (HLE) cannot wake the thread
+# (the CRI ADX/Sofdec server thread, which suspends itself every loop, then never runs again).
+patch('src/hle/os/os_thread.cpp', [
+    ('// SATBK-UNMAPPED(MKW 801aa6a8): PPC_NATIVE_OVERRIDE_VOID(801AA6A8, OSSuspendThread_HLE_801aa6a8, (CpuContext* ctx), (ctx));',
+     'PPC_NATIVE_OVERRIDE_VOID(80545504, OSSuspendThread_HLE_801aa6a8, (CpuContext* ctx), (ctx));'),
+])
+# Disc titles live under title/00010000 (MKW's channel-style 00010004 came from upstream).
+patch('src/hle/esp.cpp', [('static constexpr uint32_t MKW_TITLE_ID_HI = 0x00010004;', 'static constexpr uint32_t MKW_TITLE_ID_HI = 0x00010000;')])
+patch('src/hle/storage/nand_internal.h', [('constexpr uint32_t kNandTitleIdHi = 0x00010004;', 'constexpr uint32_t kNandTitleIdHi = 0x00010000;')])
+# --- Small-data (r13-relative) offsets -------------------------------------------------------
+# Upstream addresses some SDK globals as r13 - offset with MKW's offsets; the address remap does
+# not see those. These are this game's offsets, read from the same instruction in each matched
+# SDK function (tools: sdamap). Writing MKW's offsets would scribble over unrelated variables.
+patch('src/hle/audio/ax_mix.cpp', [
+    ('Memory::Read16(r13 - 0x73fcu)', 'Memory::Read16(r13 - 0x3a34u)'),
+    ('Memory::Read16(r13 - 0x7400u)', 'Memory::Read16(r13 - 0x3a38u)'),
+    ('Memory::Read16(r13 - 0x73feu)', 'Memory::Read16(r13 - 0x3a36u)'),
+    ('Memory::Write32(r13 - 0x66d8u, 1);', 'Memory::Write32(r13 - 0x1278u, 1);'),
+    ('Memory::Write32(r13 - 0x66dcu, 0);', 'Memory::Write32(r13 - 0x127cu, 0);'),
+])
+patch('src/hle/os/os_interrupt.cpp', [
+    ('const uint32_t kCallbackPtrAddr = r13 - 0x62b8u;', 'const uint32_t kCallbackPtrAddr = r13 - 0x15b0u;'),
+    ('const uint32_t kHandlerActiveAddr = r13 - 0x62c0u;', 'const uint32_t kHandlerActiveAddr = r13 - 0x15b8u;'),
+    ('Memory::Read32(ctx->gpr[13] + -25620)', 'Memory::Read32(ctx->gpr[13] + -4396)'),
+    ('Memory::Write32(ctx->gpr[13] + -25620, newBufLo)', 'Memory::Write32(ctx->gpr[13] + -4396, newBufLo)'),
+])
+patch('src/hle/os/os_internal.h', [
+    ('constexpr uint32_t kAlarmQueueOffsetFromR13 = 0x6360u;', 'constexpr uint32_t kAlarmQueueOffsetFromR13 = 0x1660u;'),
+])
+patch('src/hle/os/os_init.cpp', [
+    ('::Memory::Write32(r13 - 0x62ccu, 1);', '::Memory::Write32(r13 - 0x15c4u, 1);'),
+    ('::Memory::Write32(r13 - 0x62c8u, 0x00535401);', '::Memory::Write32(r13 - 0x15c0u, 0x00535401);'),
+    ('::Memory::Write32(r13 - 0x62c4u, 0x00535402);', '::Memory::Write32(r13 - 0x15bcu, 0x00535402);'),
+])
+patch('src/hle/storage/nand_isfs.cpp', [
+    ('kIsfsFdSda1Offset = 29408u;', 'kIsfsFdSda1Offset = 17536u;'),
+    ('kIsfsPathSda1Offset = 29400u;', 'kIsfsPathSda1Offset = 17528u;'),
+    ('kIpcBufferLoSda1Offset = 25620u;', 'kIpcBufferLoSda1Offset = 4396u;'),
+    ('kIpcBufferHiSda1Offset = 25616u;', 'kIpcBufferHiSda1Offset = 4392u;'),
+    ('kIpcArenaLoSda1Offset = 25732u;', 'kIpcArenaLoSda1Offset = 6588u;'),
+    ('kIpcArenaHiSda1Offset = 25728u;', 'kIpcArenaHiSda1Offset = 6584u;'),
+    ('kIsfsHeapHandleSda1Offset = 25724u;', 'kIsfsHeapHandleSda1Offset = 6580u;'),
+    ('kIsfsHeapBaseSda1Offset = 25740u;', 'kIsfsHeapBaseSda1Offset = 6596u;'),
+    ('kIsfsHeapInitializedSda1Offset = 25744u;', 'kIsfsHeapInitializedSda1Offset = 6600u;'),
+])
+patch('src/hle/ios.cpp', [
+    ('''    const int32_t result = NAND_IOS_Ioctl_HLE(fd, cmd, inBuf, inLen, outBuf, outLen);
+    CompleteAsync(ctx, callback, result, callbackArg); // Success''', '''    const int32_t result = NAND_IOS_Ioctl_HLE(fd, cmd, inBuf, inLen, outBuf, outLen);
+    {
+        static int logged = 0;
+        static uint32_t lastFd = ~0u, lastCmd = ~0u;
+        if ((fd != lastFd || cmd != lastCmd) && logged < 40) {
+            ++logged;
+            lastFd = fd;
+            lastCmd = cmd;
+            std::fprintf(stderr, "[ios] IoctlAsync fd=%u cmd=%u in=%08X/%u out=%08X/%u -> %d\\n", fd, cmd, inBuf, inLen,
+                         outBuf, outLen, result);
+        }
+    }
+    CompleteAsync(ctx, callback, result, callbackArg); // Success'''),
+])
+patch('src/hle/storage/nand_api.cpp', [
+    ('''        LogNandError("NANDOpen", "invalid params: path=%p fileInfo=0x%08X", path, fileInfoPtr);
+        return NAND_RESULT_INVALID;
+    }
+''', '''        LogNandError("NANDOpen", "invalid params: path=%p fileInfo=0x%08X", path, fileInfoPtr);
+        return NAND_RESULT_INVALID;
+    }
+    std::fprintf(stderr, "[nand] NANDOpen %s mode=%u\\n", path, mode);
+'''),
+])
+patch('src/hle/ios.cpp', [
+    ('''    const int32_t result = NAND_IOS_Ioctlv_HLE(fd, cmd, numIn, numOut, vectorPtr);
+    CompleteAsync(ctx, callback, result, callbackArg);''', '''    const int32_t result = NAND_IOS_Ioctlv_HLE(fd, cmd, numIn, numOut, vectorPtr);
+    {
+        static int logged = 0;
+        if (logged < 40) {
+            ++logged;
+            const uint32_t v0 = numIn + numOut ? Memory::Read32(vectorPtr) : 0;
+            std::fprintf(stderr, "[ios] IoctlvAsync fd=%u cmd=%u in=%u out=%u v0=%08X '%s' cb=%08X -> %d\\n", fd, cmd,
+                         numIn, numOut, v0, v0 ? (const char*)Memory::GetPointer(v0) : "", callback, result);
+        }
+    }
+    CompleteAsync(ctx, callback, result, callbackArg);'''),
+])
+# 0x803D0828 is not NANDGetCurrentDir in this game: it is the ISFS_ReadDir completion callback of
+# NANDChangeDirAsync (copies the new dir, then calls the user callback). Hooking it with the
+# NANDGetCurrentDir HLE swallowed the callback, so the boot-time save check never completed.
+patch('src/hle/storage/nand_api.cpp', [
+    ('PPC_NATIVE_OVERRIDE(803D0828, NANDGetCurrentDir_HLE, int32_t, (uint32_t outPathPtr), (outPathPtr));',
+     '// SATBK: 0x803D0828 is nandChangeDirCallback here, not NANDGetCurrentDir; leave it translated.'),
+])
+# Aurora retires idle cached textures only when the texture-cache revision advances, which happens
+# on GXInvalidateTexAll. This game re-inits texture objects every frame (movie frames, menus)
+# without calling it every frame, so the caches -- and GPU memory -- grew without bound (OOM after
+# a minute or two). Invalidating once per displayed frame bounds them; on hardware it is only a
+# texture-cache flush.
+patch('src/hle/gx/gx_copy.cpp', [
+    ('''    EnsureAuroraFrameActive();
+    SatbkDevTestQuad();''', '''    EnsureAuroraFrameActive();
+    SatbkDevTestQuad();
+    GXInvalidateTexAll();'''),
+])
