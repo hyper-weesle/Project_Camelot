@@ -1,4 +1,5 @@
 #include "hle_stubs.h"
+extern "C" bool SatbkRemoteConnected(uint32_t chan);
 #include "memory.h"
 #include "hle/controller_status_contract.h"
 #include "wii_remote_input.h"
@@ -60,13 +61,13 @@ extern "C" int32_t WPADGetStatus_HLE()
     // Reading r3 here would leak a caller's stale register value into the result.
     return g_state.contract.GetLibraryStatus();
 }
-PPC_NATIVE_OVERRIDE(801BF64C, WPADGetStatus_HLE, int32_t, (), ());
+// SATBK-UNMAPPED(MKW 801bf64c): PPC_NATIVE_OVERRIDE(801BF64C, WPADGetStatus_HLE, int32_t, (), ());
 
 extern "C" uint32_t WPADGetDpdSensitivity_HLE()
 {
     return static_cast<uint32_t>(g_state.dpdSensitivity);
 }
-PPC_NATIVE_OVERRIDE(801C329C, WPADGetDpdSensitivity_HLE, uint32_t, (), ());
+// SATBK-UNMAPPED(MKW 801c329c): PPC_NATIVE_OVERRIDE(801C329C, WPADGetDpdSensitivity_HLE, uint32_t, (), ());
 
 extern "C" int32_t WPADInitSub_HLE()
 {
@@ -76,19 +77,19 @@ extern "C" int32_t WPADInitSub_HLE()
     }
     return kStatusOk;
 }
-PPC_NATIVE_OVERRIDE(801BF3B4, WPADInitSub_HLE, int32_t, (), ());
+PPC_NATIVE_OVERRIDE(803D34F0, WPADInitSub_HLE, int32_t, (), ());
 
 extern "C" int32_t WPADInit_HLE()
 {
     return InitializeWpadLibrary();
 }
-PPC_NATIVE_OVERRIDE(801BF5C4, WPADInit_HLE, int32_t, (), ());
+PPC_NATIVE_OVERRIDE(803D3750, WPADInit_HLE, int32_t, (), ());
 
 extern "C" int32_t WUDGetStatus_HLE()
 {
     return WpadContract::kStatusReady;
 }
-PPC_NATIVE_OVERRIDE(801CDB84, WUDGetStatus_HLE, int32_t, (), ());
+PPC_NATIVE_OVERRIDE(805F8608, WUDGetStatus_HLE, int32_t, (), ());
 
 // WPADGetDataFormat reads the per-channel format set by WPADSetDataFormat. Can't reuse the
 // translated SDK implementation: it dereferences Bluetooth control blocks that HLE'd WPADInit
@@ -97,14 +98,14 @@ extern "C" int32_t WPADGetDataFormat_HLE(uint32_t chan)
 {
     return g_state.contract.GetDataFormat(chan);
 }
-PPC_NATIVE_OVERRIDE(801C0B54, WPADGetDataFormat_HLE, int32_t, (uint32_t chan), (chan));
+PPC_NATIVE_OVERRIDE(803D4D50, WPADGetDataFormat_HLE, int32_t, (uint32_t chan), (chan));
 
 // WPADSetDataFormat: records the per-channel data format the game asked for.
 extern "C" int32_t WPADSetDataFormat_HLE(uint32_t chan, int32_t format)
 {
     return g_state.contract.SetDataFormat(chan, format);
 }
-PPC_NATIVE_OVERRIDE(801C0B9C, WPADSetDataFormat_HLE, int32_t, (uint32_t chan, int32_t format), (chan, format));
+PPC_NATIVE_OVERRIDE(803D4D94, WPADSetDataFormat_HLE, int32_t, (uint32_t chan, int32_t format), (chan, format));
 
 // WPADProbe: reports the extension type of a Bluetooth remote on `chan`, or no controller.
 extern "C" int32_t WPADProbe_HLE(uint32_t chan, uint32_t typePtr)
@@ -134,19 +135,26 @@ extern "C" int32_t WPADProbe_HLE(uint32_t chan, uint32_t typePtr)
         }
         return kStatusOk;
     }
+    // SatBK: a PC gamepad/keyboard on this port stands in for a Wii Remote + Nunchuk.
+    if (SatbkRemoteConnected(chan)) {
+        if (typePtr != 0) {
+            Memory::Write32(typePtr, 1u); // WPAD_DEV_FREESTYLE
+        }
+        return kStatusOk;
+    }
     if (typePtr != 0) {
         Memory::Write32(typePtr, WpadContract::kExtensionCore);
     }
     return WpadContract::kErrorNoController;
 }
-PPC_NATIVE_OVERRIDE(801C0990, WPADProbe_HLE, int32_t, (uint32_t chan, uint32_t typePtr), (chan, typePtr));
+PPC_NATIVE_OVERRIDE(803D4B58, WPADProbe_HLE, int32_t, (uint32_t chan, uint32_t typePtr), (chan, typePtr));
 
 extern "C" void WPADControlMotor_HLE(uint32_t chan, uint32_t command)
 {
     (void)chan;
     (void)command;
 }
-PPC_NATIVE_OVERRIDE(801C0EC4, WPADControlMotor_HLE, void, (uint32_t chan, uint32_t command), (chan, command));
+PPC_NATIVE_OVERRIDE(803D50C0, WPADControlMotor_HLE, void, (uint32_t chan, uint32_t command), (chan, command));
 
 extern "C" int32_t WPADGetInfoAsync_HLE(uint32_t chan, uint32_t infoPtr, uint32_t callback)
 {
@@ -154,10 +162,18 @@ extern "C" int32_t WPADGetInfoAsync_HLE(uint32_t chan, uint32_t infoPtr, uint32_
         return CompleteWpadRequest(chan, callback, WpadContract::kErrorBadChannel);
     }
 
+    if (SatbkRemoteConnected(chan)) {
+        if (infoPtr != 0) {
+            for (uint32_t o = 0; o < 0x18; o += 4) Memory::Write32(infoPtr + o, 0);
+            Memory::Write32(infoPtr + 0x08, 1); // attach: Nunchuk present
+            Memory::Write8(infoPtr + 0x14, 4);  // battery: full
+        }
+        return CompleteWpadRequest(chan, callback, kStatusOk);
+    }
     (void)infoPtr;
     return CompleteWpadRequest(chan, callback, WpadContract::kErrorNoController);
 }
-PPC_NATIVE_OVERRIDE(801C0CA4, WPADGetInfoAsync_HLE, int32_t,
+PPC_NATIVE_OVERRIDE(803D4EA0, WPADGetInfoAsync_HLE, int32_t,
          (uint32_t chan, uint32_t infoPtr, uint32_t callback), (chan, infoPtr, callback));
 
 extern "C" int32_t WPADControlLed_HLE(uint32_t chan, uint32_t ledMask, uint32_t callback)
@@ -166,9 +182,10 @@ extern "C" int32_t WPADControlLed_HLE(uint32_t chan, uint32_t ledMask, uint32_t 
         return CompleteWpadRequest(chan, callback, WpadContract::kErrorBadChannel);
     }
     (void)ledMask;
-    return CompleteWpadRequest(chan, callback, WpadContract::kErrorNoController);
+    return CompleteWpadRequest(chan, callback,
+                               SatbkRemoteConnected(chan) ? kStatusOk : WpadContract::kErrorNoController);
 }
-PPC_NATIVE_OVERRIDE(801C0FF8, WPADControlLed_HLE, int32_t,
+PPC_NATIVE_OVERRIDE(803D51F4, WPADControlLed_HLE, int32_t,
          (uint32_t chan, uint32_t ledMask, uint32_t callback), (chan, ledMask, callback));
 
 extern "C" int32_t WPADStartSimpleSync_HLE()
@@ -179,8 +196,8 @@ extern "C" int32_t WPADStartSimpleSync_HLE()
     g_state.simpleSyncActive = true;
     return 1;
 }
-PPC_NATIVE_OVERRIDE(801BF634, WPADStartSimpleSync_HLE, int32_t, (), ()); // WUDStartSyncSimple
-PPC_NATIVE_OVERRIDE(801BF638, WPADStartSimpleSync_HLE, int32_t, (), ()); // WPADStartSimpleSync (HBM)
+// SATBK-UNMAPPED(MKW 801bf634): PPC_NATIVE_OVERRIDE(801BF634, WPADStartSimpleSync_HLE, int32_t, (), ()); // WUDStartSyncSimple
+PPC_NATIVE_OVERRIDE(803D37C0, WPADStartSimpleSync_HLE, int32_t, (), ()); // WPADStartSimpleSync (HBM)
 
 // due to multiplayer controller screen hle this to avoid startsyncdevice to return fail every frame
 // causing you to get softlocked in the game
@@ -195,7 +212,7 @@ extern "C" int32_t WPADStopSimpleSync_HLE()
     }
     return 1;
 }
-PPC_NATIVE_OVERRIDE(801BF63C, WPADStopSimpleSync_HLE, int32_t, (), ());
+PPC_NATIVE_OVERRIDE(803D37C4, WPADStopSimpleSync_HLE, int32_t, (), ());
 
 extern "C" uint32_t WPADSetSyncDeviceCallback_HLE(uint32_t callback)
 {
@@ -203,4 +220,4 @@ extern "C" uint32_t WPADSetSyncDeviceCallback_HLE(uint32_t callback)
     g_state.syncDeviceCallback = callback;
     return previous;
 }
-PPC_NATIVE_OVERRIDE(801BF640, WPADSetSyncDeviceCallback_HLE, uint32_t, (uint32_t callback), (callback));
+PPC_NATIVE_OVERRIDE(803D37C8, WPADSetSyncDeviceCallback_HLE, uint32_t, (uint32_t callback), (callback));

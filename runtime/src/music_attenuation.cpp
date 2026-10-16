@@ -11,7 +11,7 @@
 #include <mutex>
 #include <thread>
 
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_MSC_VER)
 #include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
@@ -96,6 +96,7 @@ bool ReadGuestFloat(uint32_t address, float& value) noexcept {
 }
 
 uint32_t ResolveSoundPlayerArray() noexcept {
+    return 0; // SatBK: CRI audio, no NW4R sound players to attenuate.
     uint32_t soundManager = 0;
     uint32_t archivePlayer = 0;
     uint32_t soundPlayers = 0;
@@ -175,7 +176,7 @@ bool ShouldAttenuate() noexcept {
            g_externalMediaPlaying.load(std::memory_order_acquire);
 }
 
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_MSC_VER)
 void MonitorWindowsMediaSessions() noexcept {
     using namespace winrt::Windows::Media::Control;
     using namespace std::chrono_literals;
@@ -478,7 +479,7 @@ void MonitorMacOSAudio() noexcept {
 #endif
 
 void StartMonitor() noexcept {
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_MSC_VER)
     // The process owns this monitor for its remaining lifetime. Keeping it
     // detached avoids shutdown ordering between WinRT and static audio state.
     std::thread(MonitorWindowsMediaSessions).detach();

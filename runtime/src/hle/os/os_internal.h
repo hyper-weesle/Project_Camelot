@@ -24,28 +24,28 @@ extern std::atomic<bool> g_interrupts_enabled;
 // observable state, not just bookkeeping.
 extern std::atomic<uint32_t> g_interrupt_mask;
 
-constexpr uint32_t kInterruptHandlerTablePtrAddr = 0x803868f8u;
+constexpr uint32_t kInterruptHandlerTablePtrAddr = 0x808050B8u;
 constexpr uint32_t kInterruptHandlerTableAddr = 0x80003040u;
 constexpr size_t kInterruptHandlerTableBytes = 0x80u;
-constexpr uint32_t kInterruptMaskLoAddr = 0x800000c4u;
-constexpr uint32_t kInterruptMaskHiAddr = 0x800000c8u;
-constexpr uint32_t kOSPhysicalContextAddr = 0x800000c0u;
-constexpr uint32_t kOSCurrentContextAddr = 0x800000d4u;
-constexpr uint32_t kOSExceptionContextAddr = 0x800000d8u;
-constexpr uint32_t kThreadListHeadAddr = 0x800000dcu;    // First thread in thread list (for iteration)
-constexpr uint32_t kThreadListTailAddr = 0x800000e0u;    // Last added thread (tail of thread list)
-constexpr uint32_t kOSRunningContextAddr = 0x800000e4u;  // Currently running thread context
+constexpr uint32_t kInterruptMaskLoAddr = 0x800000C4u;
+constexpr uint32_t kInterruptMaskHiAddr = 0x800000C8u;
+constexpr uint32_t kOSPhysicalContextAddr = 0x800000C0u;
+constexpr uint32_t kOSCurrentContextAddr = 0x800000D4u;
+constexpr uint32_t kOSExceptionContextAddr = 0x800000D8u;
+constexpr uint32_t kThreadListHeadAddr = 0x800000DCu;    // First thread in thread list (for iteration)
+constexpr uint32_t kThreadListTailAddr = 0x800000E0u;    // Last added thread (tail of thread list)
+constexpr uint32_t kOSRunningContextAddr = 0x800000E4u;  // Currently running thread context
 
-constexpr uint32_t kDefaultThreadContextAddr = 0x80347498u;
-constexpr uint32_t kIdleThreadContextAddr = 0x803478b0u;
-constexpr uint32_t kThreadQueueArrayAddr = 0x803477b0u;
+constexpr uint32_t kDefaultThreadContextAddr = 0x80760838u;
+constexpr uint32_t kIdleThreadContextAddr = 0x80760C50u;
+constexpr uint32_t kThreadQueueArrayAddr = 0x80760B50u;
 constexpr size_t kThreadQueueArrayBytes = 0x100u;
-constexpr uint32_t kSwitchThreadCallbackPtrAddr = 0x80385ae0u;
-constexpr uint32_t kSchedulerReschedCounterAddr = 0x8038691cu;
-constexpr uint32_t kSchedulerPendingFlagAddr = 0x80386920u;
+constexpr uint32_t kSwitchThreadCallbackPtrAddr = 0x80802BB0u;
+constexpr uint32_t kSchedulerReschedCounterAddr = 0x808050E4u;
+constexpr uint32_t kSchedulerPendingFlagAddr = 0x808050E8u;
 // RVL OS uses this as the OSDisableScheduler/OSEnableScheduler nesting count.
 // SelectThread exits early while the count is non-zero.
-constexpr uint32_t kSchedulerIdleFlagAddr = 0x80386918u;
+constexpr uint32_t kSchedulerIdleFlagAddr = 0x808050E0u;
 constexpr uint32_t kAlarmQueueOffsetFromR13 = 0x6360u;
 
 constexpr uint32_t kThreadStateOffset = 0x2C8u;

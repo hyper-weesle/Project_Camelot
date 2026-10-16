@@ -328,7 +328,7 @@ extern "C" void OS__SleepTicks_HLE_801aaca8(CpuContext* ctx)
 
     OS__RestoreInterrupts_801a65d4(irqState);
 }
-REGISTER_NATIVE_FUNCTION(0x801AACA8, OS__SleepTicks_HLE_801aaca8);
+REGISTER_NATIVE_FUNCTION(0x805459EC, OS__SleepTicks_HLE_801aaca8);
 
 namespace {
 // OSSleepThread must reach SelectThread with the scheduler-disable count at zero, or the thread
@@ -487,4 +487,4 @@ extern "C" void OSSleepThread_HLE_801aa9b8(CpuContext* ctx)
     
     OS__RestoreInterrupts_801a65d4(irqState);
 }
-PPC_NATIVE_OVERRIDE_VOID(801AA9B8, OSSleepThread_HLE_801aa9b8, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(80545698, OSSleepThread_HLE_801aa9b8, (CpuContext* ctx), (ctx));

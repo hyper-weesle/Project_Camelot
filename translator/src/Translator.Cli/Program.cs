@@ -3733,7 +3733,12 @@ ProgramImage LoadImage()
         $"(entry 0x{dol.EntryPoint:X8}).");
 
     var relImage = relFile.Value?.BuildImage(loadedProject.Inputs.Rel!.LoadAddress);
-    return new ProgramImageBuilder().Build(dol, relImage, loadedProject.Memory.Base, loadedProject.Memory.Size);
+    var flat = FlatImageInputs.Current
+        .Select(f => (f.LoadAddress, File.ReadAllBytes(f.Path)))
+        .ToList();
+    foreach (var (address, bytes) in flat)
+        Console.WriteLine($"[translator] Flat image: {bytes.Length:N0} bytes @ 0x{address:X8}");
+    return new ProgramImageBuilder().Build(dol, relImage, loadedProject.Memory.Base, loadedProject.Memory.Size, flat);
 }
 
 DolFile LoadDol()

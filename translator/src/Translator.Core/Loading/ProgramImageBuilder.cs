@@ -18,7 +18,8 @@ public sealed class ProgramImageBuilder
         DolFile dol,
         RelImage? rel = null,
         uint ramBase = MemoryLayout.RamBase,
-        int ramSize = MemoryLayout.RamSize)
+        int ramSize = MemoryLayout.RamSize,
+        System.Collections.Generic.IReadOnlyList<(uint Address, byte[] Data)>? flatImages = null)
     {
         if (ramSize <= 0)
         {
@@ -73,6 +74,16 @@ public sealed class ProgramImageBuilder
         }
 
         var usedRange = rel is null ? dol.MemoryRange : AddressRange.Union(dol.MemoryRange, rel.Range);
+        foreach (var (address, data) in flatImages ?? [])
+        {
+            var flatOffset = checked((int)(address - ramBase));
+            if (flatOffset < 0 || flatOffset + data.Length > ram.Length)
+            {
+                throw new InvalidOperationException($"Flat image @ 0x{address:X8} spills outside the RAM window; raise memory.size");
+            }
+            data.CopyTo(ram, flatOffset);
+            usedRange = AddressRange.Union(usedRange, AddressRange.FromStartAndSize(address, (uint)data.Length));
+        }
 
         var sha = ChecksumUtilities.Sha256Hex(ram);
         return new ProgramImage(ram, usedRange, dol.MemoryRange, relRange, sha, ramBase);

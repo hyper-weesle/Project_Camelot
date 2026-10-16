@@ -1,3 +1,6 @@
+#include <cstdlib>
+extern "C" bool SatbkGxTraceOn();
+#include <cstdio>
 #include "gx_internal.h"
 #include "gx_stream_common.h"
 #include "gx_cp_decode.h"
@@ -234,6 +237,13 @@ static bool SubmitAttributeReadsFloatComps(GXAttr attr, const VtxAttrFmt& fmt) {
 }
 
 void SubmitAttribute(GXAttr attr, float* comps, const VtxAttrFmt& fmt, const u32* rawComps) {
+    {
+        if (SatbkGxTraceOn()) {
+            std::fprintf(stderr, "[gxtrace]   attr %d comps %g %g %g %g raw=%d [%d %d %d]\n", (int)attr, comps[0], comps[1],
+                         comps[2], comps[3], rawComps != nullptr, rawComps ? (int)rawComps[0] : 0,
+                         rawComps ? (int)rawComps[1] : 0, rawComps ? (int)rawComps[2] : 0);
+        }
+    }
     auto r8 = [rawComps](int idx) { return static_cast<u8>(rawComps[idx]); };
     auto rs8 = [rawComps](int idx) { return static_cast<s8>(rawComps[idx]); };
     auto r16 = [rawComps](int idx) { return static_cast<u16>(rawComps[idx]); };
@@ -591,6 +601,12 @@ void HleFifoWrite(u32 val, uint32_t sizeBytes) {
 
                 GXColor color{};
                 DecodeColorBytes(colorBytes, fmt.type, fmt.cnt, color);
+                {
+                    if (SatbkGxTraceOn()) {
+                        std::fprintf(stderr, "[gxtrace]   color %02X%02X%02X%02X (type %d)\n", color.r, color.g,
+                                     color.b, color.a, (int)fmt.type);
+                    }
+                }
 
                 if (!recordOnly) {
                     if (fmt.cnt == GX_CLR_RGB) {

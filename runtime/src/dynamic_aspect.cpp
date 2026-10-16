@@ -116,6 +116,7 @@ void SweepGfxNodeList(uint32_t list, bool offscreenList) {
 // record 2), so without this bypass they'd inherit the expansion and render vertically squashed.
 // Re-arms every scene transition since the offscreen renderer is a per-scene singleton.
 void AssertOffscreenScreenBypass() {
+    return; // SatBK: the EGG/MKW screen graph does not exist in this game.
     SweepGfxNodeList(kMkwGfxDrawList, /*offscreenList=*/false);
     SweepGfxNodeList(kMkwGfxOffscreenList, /*offscreenList=*/true);
 }
@@ -129,6 +130,8 @@ void WriteEggScreenRecord(uint32_t recordAddr, uint32_t width) {
 }
 
 void ApplyEggScreenRecords(uint32_t surfaceWidth, uint32_t surfaceHeight) {
+    (void)surfaceWidth; (void)surfaceHeight;
+    return; // SatBK: no EGG screen records.
     using namespace MkwDynamicAspect;
     const uint32_t width43 =
         g_widescreenConfigured ? EggRecordWidth(kEggRecordWidth43, surfaceWidth, surfaceHeight)

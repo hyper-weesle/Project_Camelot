@@ -112,7 +112,7 @@ inline std::filesystem::path PathFromUtf8(std::string_view text) {
 }
 
 inline constexpr const char* kConfigFileName = "Config.toml";
-inline constexpr const char* kApplicationDirectoryName = "WiiCompiled";
+inline constexpr const char* kApplicationDirectoryName = "SonicBlackKnightPC";
 
 // Portable layout. A directory holding kPortableMarkerFileName is a portable root; every piece of
 // runtime user state (Config.toml, NAND, Cache, Logs) lives in <root>/UserData instead of
@@ -296,8 +296,8 @@ inline void EnsureConfigFile() {
     if (!output) {
         return;
     }
-    output << "# WiiCompiled user configuration\n"
-              "# Set paths.dvd_root to an extracted Mario Kart Wii DATA directory.\n\n"
+    output << "# Sonic and the Black Knight PC port - user configuration\n"
+              "# Game data is read from GameData next to the executable unless paths.dvd_root says otherwise.\n\n"
               "[video]\n"
               "widescreen = true\n"
               "force_16_9 = false\n"
@@ -990,7 +990,11 @@ inline std::filesystem::path ResolveRelativeToConfig(const std::string& value) {
 // The extracted DATA directory. Empty when nothing is configured.
 inline std::filesystem::path ResolvedDvdRoot() {
     const std::string configured = DvdRoot();
-    return configured.empty() ? std::filesystem::path{} : ResolveRelativeToConfig(configured);
+    if (configured.empty()) {
+        const auto exeDir = ExecutableDirectory();
+        return exeDir ? (*exeDir / "GameData") : std::filesystem::path{};
+    }
+    return ResolveRelativeToConfig(configured);
 }
 
 /// The canonical Retro Rewind installation the frontend owns, or "" when none is recorded.
@@ -998,7 +1002,7 @@ inline std::string RetroRewindRoot(std::string fallback = "") {
     return Get().retroRewindRoot.value_or(std::move(fallback));
 }
 
-inline bool DiscordPresenceEnabled(bool fallback = true) {
+inline bool DiscordPresenceEnabled(bool fallback = false) {
     return Get().discordPresenceEnabled.value_or(fallback);
 }
 

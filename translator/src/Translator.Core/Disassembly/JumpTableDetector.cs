@@ -383,6 +383,41 @@ internal static class JumpTableDetector
 
     private static bool TryFindUpperBound(IReadOnlyList<PpcInstruction> ordered, int startIndex, string register, out int upperBound)
     {
+        // The lwzx index is usually the selector scaled by 4 (slwi rIdx, rSel, 2 ==
+        // rlwinm rIdx, rSel, 2, 0, 29). The bound check is on rSel; a compare on rIdx's
+        // register name further back can belong to unrelated code (e.g. "cmpwi r0, 3"
+        // guarding a different branch), which truncated the case list.
+        for (var i = startIndex - 1; i >= 0 && startIndex - i <= 16; i--)
+        {
+            var ins = ordered[i];
+            if (ins.Operands.Count < 1 || ins.Operands[0] is not PpcRegisterOperand written ||
+                !string.Equals(written.Name, register, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            if (ins.Mnemonic == "rlwinm" && ins.Operands.Count == 5 &&
+                ins.Operands[1] is PpcRegisterOperand source &&
+                ins.Operands[2] is PpcImmediateOperand { Value: 2 } &&
+                ins.Operands[3] is PpcImmediateOperand { Value: 0 } &&
+                ins.Operands[4] is PpcImmediateOperand { Value: 29 })
+            {
+                for (var j = i - 1; j >= 0 && i - j <= MaxBacktrackInstructions; j--)
+                {
+                    var cmp = ordered[j];
+                    if (cmp.Mnemonic is not ("cmplwi" or "cmpwi") || cmp.Operands.Count < 2 ||
+                        cmp.Operands[0] is not PpcRegisterOperand cmpReg ||
+                        !string.Equals(cmpReg.Name, source.Name, StringComparison.OrdinalIgnoreCase) ||
+                        cmp.Operands[1] is not PpcImmediateOperand bound)
+                    {
+                        continue;
+                    }
+                    upperBound = bound.Value;
+                    return true;
+                }
+            }
+            break; // the index register is produced some other way; fall through
+        }
+
         // Preferred: compare directly on the same register used for lwzx indexing.
         for (var i = startIndex - 1; i >= 0 && startIndex - i <= MaxBacktrackInstructions; i--)
         {

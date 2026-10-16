@@ -1337,7 +1337,7 @@ int RuntimeMain(int argc, char** argv) {
         }
         RuntimeConfigFile::LogLoadedConfig();
         if (RuntimeConfigFile::DiscordPresenceEnabled()) {
-            DiscordPresence::Initialize(RuntimeConfigFile::DiscordClientId(), "Mario Kart Wii");
+            DiscordPresence::Initialize(RuntimeConfigFile::DiscordClientId(), "Sonic and the Black Knight");
         }
         SystemBridge::Initialize();
         TranslatedFunctionRegistry::Finalize();

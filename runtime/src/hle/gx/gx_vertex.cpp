@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+extern "C" bool SatbkGxTraceOn();
 
 namespace {
 uint32_t CanonicalVtxAttr(uint32_t attr) {
@@ -41,7 +42,7 @@ extern "C" void GX__ClearVtxDesc_8016dc34() {
     // GXClearVtxDesc resets descriptors only; array base/stride state persists.
     GXClearVtxDesc();
 }
-PPC_NATIVE_OVERRIDE_VOID(8016dc34, GX__ClearVtxDesc_8016dc34, (), ());
+PPC_NATIVE_OVERRIDE_VOID(805690A8, GX__ClearVtxDesc_8016dc34, (), ());
 
 extern "C" void GX__SetVtxDesc_8016d3a4(uint32_t a, uint32_t t) {
     const uint32_t attr = CanonicalVtxAttr(a);
@@ -55,7 +56,7 @@ extern "C" void GX__SetVtxDesc_8016d3a4(uint32_t a, uint32_t t) {
     if(IsMatrixIndexAttr((GXAttr)attr)) return;
     GXSetVtxDesc((GXAttr)a, (t==GX_INDEX8||t==GX_INDEX16)?GX_DIRECT:(GXAttrType)t);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016d3a4, GX__SetVtxDesc_8016d3a4, (uint32_t a, uint32_t t), (a, t));
+PPC_NATIVE_OVERRIDE_VOID(80568C68, GX__SetVtxDesc_8016d3a4, (uint32_t a, uint32_t t), (a, t));
 
 extern "C" void GX__SetVtxDescv_8016d608(uint32_t la) {
     if(!la) return; uint32_t p=la;
@@ -66,7 +67,7 @@ extern "C" void GX__SetVtxDescv_8016d608(uint32_t la) {
         p+=8;
     }
 }
-PPC_NATIVE_OVERRIDE_VOID(8016d608, GX__SetVtxDescv_8016d608, (uint32_t la), (la));
+// SATBK-UNMAPPED(MKW 8016d608): PPC_NATIVE_OVERRIDE_VOID(8016d608, GX__SetVtxDescv_8016d608, (uint32_t la), (la));
 
 extern "C" void GX__GetVtxDesc_8016d9f0(uint32_t a, uint32_t tp) {
     GXAttrType type = GX_NONE;
@@ -78,7 +79,7 @@ extern "C" void GX__GetVtxDesc_8016d9f0(uint32_t a, uint32_t tp) {
         Memory::Write32(tp, static_cast<uint32_t>(type));
     }
 }
-PPC_NATIVE_OVERRIDE_VOID(8016d9f0, GX__GetVtxDesc_8016d9f0, (uint32_t a, uint32_t tp), (a, tp));
+// SATBK-UNMAPPED(MKW 8016d9f0): PPC_NATIVE_OVERRIDE_VOID(8016d9f0, GX__GetVtxDesc_8016d9f0, (uint32_t a, uint32_t tp), (a, tp));
 
 extern "C" void GX__GetVtxDescv_8016dba4(uint32_t la) {
     if (!la) {
@@ -96,7 +97,7 @@ extern "C" void GX__GetVtxDescv_8016dba4(uint32_t la) {
     p += 8;
     Memory::Write32(p, GX_VA_NULL);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016dba4, GX__GetVtxDescv_8016dba4, (uint32_t la), (la));
+// SATBK-UNMAPPED(MKW 8016dba4): PPC_NATIVE_OVERRIDE_VOID(8016dba4, GX__GetVtxDescv_8016dba4, (uint32_t la), (la));
 
 // ============================================================================
 // Vertex Attribute Format
@@ -122,7 +123,7 @@ extern "C" void GX__SetVtxAttrFmt_8016dc68(uint32_t vf, uint32_t a, uint32_t c, 
     }
     GXSetVtxAttrFmt((GXVtxFmt)vf, (GXAttr)a, (GXCompCnt)c, (GXCompType)t, (u8)fr);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016dc68, GX__SetVtxAttrFmt_8016dc68, (uint32_t vf, uint32_t a, uint32_t c, uint32_t t, uint32_t fr), (vf, a, c, t, fr));
+PPC_NATIVE_OVERRIDE_VOID(805690DC, GX__SetVtxAttrFmt_8016dc68, (uint32_t vf, uint32_t a, uint32_t c, uint32_t t, uint32_t fr), (vf, a, c, t, fr));
 
 extern "C" void GX__SetVtxAttrFmtv_8016de08(uint32_t vf, uint32_t la) {
     if(!la) return; uint32_t p=la;
@@ -133,7 +134,7 @@ extern "C" void GX__SetVtxAttrFmtv_8016de08(uint32_t vf, uint32_t la) {
         p+=16;
     }
 }
-PPC_NATIVE_OVERRIDE_VOID(8016de08, GX__SetVtxAttrFmtv_8016de08, (uint32_t vf, uint32_t la), (vf, la));
+PPC_NATIVE_OVERRIDE_VOID(8056927C, GX__SetVtxAttrFmtv_8016de08, (uint32_t vf, uint32_t la), (vf, la));
 
 extern "C" void GX__GetVtxAttrFmt_8016e04c(uint32_t vf, uint32_t a, uint32_t cp, uint32_t tp, uint32_t fp) {
     VtxAttrFmt fmt{};
@@ -151,7 +152,7 @@ extern "C" void GX__GetVtxAttrFmt_8016e04c(uint32_t vf, uint32_t a, uint32_t cp,
         Memory::Write8(fp, fmt.frac);
     }
 }
-PPC_NATIVE_OVERRIDE_VOID(8016e04c, GX__GetVtxAttrFmt_8016e04c, (uint32_t vf, uint32_t a, uint32_t cp, uint32_t tp, uint32_t fp), (vf, a, cp, tp, fp));
+// SATBK-UNMAPPED(MKW 8016e04c): PPC_NATIVE_OVERRIDE_VOID(8016e04c, GX__GetVtxAttrFmt_8016e04c, (uint32_t vf, uint32_t a, uint32_t cp, uint32_t tp, uint32_t fp), (vf, a, cp, tp, fp));
 
 extern "C" void GX__GetVtxAttrFmtv_8016e2b8(uint32_t vf, uint32_t la) {
     if (!la) {
@@ -172,7 +173,7 @@ extern "C" void GX__GetVtxAttrFmtv_8016e2b8(uint32_t vf, uint32_t la) {
     }
     Memory::Write32(p, GX_VA_NULL);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016e2b8, GX__GetVtxAttrFmtv_8016e2b8, (uint32_t vf, uint32_t la), (vf, la));
+// SATBK-UNMAPPED(MKW 8016e2b8): PPC_NATIVE_OVERRIDE_VOID(8016e2b8, GX__GetVtxAttrFmtv_8016e2b8, (uint32_t vf, uint32_t la), (vf, la));
 
 // ============================================================================
 // Vertex Arrays
@@ -182,23 +183,25 @@ extern "C" void GX__SetArray_8016e32c(uint32_t a, uint32_t ba, uint32_t str) {
     const uint32_t attr = CanonicalVtxAttr(a);
     if(attr<26){ g_hleGxState.vtxArray[attr].base=ba; g_hleGxState.vtxArray[attr].stride=str; }
 }
-PPC_NATIVE_OVERRIDE_VOID(8016e32c, GX__SetArray_8016e32c, (uint32_t a, uint32_t ba, uint32_t str), (a, ba, str));
+PPC_NATIVE_OVERRIDE_VOID(805694C0, GX__SetArray_8016e32c, (uint32_t a, uint32_t ba, uint32_t str), (a, ba, str));
 
 // Switch-artifact entry point for the same SDK function; forwards rather than
 // repeating the body.
 extern "C" void GX__SetArray_8016e1c4(uint32_t a, uint32_t b, uint32_t s) { GX__SetArray_8016e32c(a, b, s); }
-PPC_NATIVE_OVERRIDE_VOID(8016e1c4, GX__SetArray_8016e1c4, (uint32_t a, uint32_t b, uint32_t s), (a, b, s));
+// SATBK-UNMAPPED(MKW 8016e1c4): PPC_NATIVE_OVERRIDE_VOID(8016e1c4, GX__SetArray_8016e1c4, (uint32_t a, uint32_t b, uint32_t s), (a, b, s));
 
 // ============================================================================
 // Texture Coordinate Generation
 // ============================================================================
 
 extern "C" void GX__SetNumTexGens_8016e5a4(uint32_t n) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] NumTexGens %u\n", n); } }
     GXSetNumTexGens((u8)n);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016e5a4, GX__SetNumTexGens_8016e5a4, (uint32_t n), (n));
+PPC_NATIVE_OVERRIDE_VOID(80569738, GX__SetNumTexGens_8016e5a4, (uint32_t n), (n));
 
 extern "C" void GX__SetTexCoordGen2_8016e37c(uint32_t dc, uint32_t f, uint32_t sp, uint32_t m, uint32_t n, uint32_t pm) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] TexCoordGen2 dc=%u f=%u sp=%u m=%u\n", dc, f, sp, m); } }
     if (sp >= static_cast<uint32_t>(GX_MAX_TEXGENSRC)) {
         uint32_t pc = 0;
         uint32_t lr = 0;
@@ -212,24 +215,24 @@ extern "C" void GX__SetTexCoordGen2_8016e37c(uint32_t dc, uint32_t f, uint32_t s
     }
     GXSetTexCoordGen2((GXTexCoordID)dc, (GXTexGenType)f, (GXTexGenSrc)sp, m, (GXBool)n, pm);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016e37c, GX__SetTexCoordGen2_8016e37c, (uint32_t dc, uint32_t f, uint32_t sp, uint32_t m, uint32_t n, uint32_t pm), (dc, f, sp, m, n, pm));
+PPC_NATIVE_OVERRIDE_VOID(80569510, GX__SetTexCoordGen2_8016e37c, (uint32_t dc, uint32_t f, uint32_t sp, uint32_t m, uint32_t n, uint32_t pm), (dc, f, sp, m, n, pm));
 
 extern "C" void GX__EnableTexOffsets_8016f37c(uint32_t coord, uint32_t lineEnable, uint32_t pointEnable) {
     GXEnableTexOffsets(static_cast<GXTexCoordID>(coord),
                        lineEnable ? GX_TRUE : GX_FALSE,
                        pointEnable ? GX_TRUE : GX_FALSE);
 }
-PPC_NATIVE_OVERRIDE_VOID(8016f37c, GX__EnableTexOffsets_8016f37c, (uint32_t coord, uint32_t lineEnable, uint32_t pointEnable), (coord, lineEnable, pointEnable));
+PPC_NATIVE_OVERRIDE_VOID(8056A488, GX__EnableTexOffsets_8016f37c, (uint32_t coord, uint32_t lineEnable, uint32_t pointEnable), (coord, lineEnable, pointEnable));
 
 extern "C" void GX__SetLineWidth_8016f314(uint32_t width, uint32_t texOffsets) {
     GXSetLineWidth(static_cast<u8>(width), static_cast<GXTexOffset>(texOffsets));
 }
-PPC_NATIVE_OVERRIDE_VOID(8016f314, GX__SetLineWidth_8016f314, (uint32_t width, uint32_t texOffsets), (width, texOffsets));
+PPC_NATIVE_OVERRIDE_VOID(8056A420, GX__SetLineWidth_8016f314, (uint32_t width, uint32_t texOffsets), (width, texOffsets));
 
 extern "C" void GX__SetPointSize_8016f348(uint32_t pointSize, uint32_t texOffsets) {
     GXSetPointSize(static_cast<u8>(pointSize), static_cast<GXTexOffset>(texOffsets));
 }
-PPC_NATIVE_OVERRIDE_VOID(8016f348, GX__SetPointSize_8016f348, (uint32_t pointSize, uint32_t texOffsets), (pointSize, texOffsets));
+PPC_NATIVE_OVERRIDE_VOID(8056A454, GX__SetPointSize_8016f348, (uint32_t pointSize, uint32_t texOffsets), (pointSize, texOffsets));
 
 // ============================================================================
 // Begin/End Drawing
@@ -281,19 +284,33 @@ extern "C" void GX__Begin_8016f0f0(uint32_t t, uint32_t vf, uint32_t nv) {
         return;
     }
     ServiceDeferredTimingDuringGxWork();
+    {
+        if (SatbkGxTraceOn()) {
+            char line[512];
+            int n = std::snprintf(line, sizeof line, "[gxtrace] Begin prim=%02X fmt=%u nv=%u desc:", t, vf, nv);
+            for (int a = 0; a < 26 && n < 480; ++a) {
+                if (g_hleGxState.vtxDesc[a] != GX_NONE) {
+                    const auto& f = g_hleGxState.vtxAttrFmt[vf & 7][a];
+                    n += std::snprintf(line + n, sizeof line - n, " %d:%d(c%d t%d f%d)", a,
+                                       (int)g_hleGxState.vtxDesc[a], (int)f.cnt, (int)f.type, (int)f.frac);
+                }
+            }
+            std::fprintf(stderr, "%s\n", line);
+        }
+    }
     ApplyAuroraVtxStateForBegin(static_cast<GXVtxFmt>(vf));
     g_hleGxState.currentVtxFmt=(GXVtxFmt)vf; g_hleGxState.currentPrim=(GXPrimitive)t;
     g_hleGxState.vertsRemaining=nv; g_hleGxState.inBegin=true; g_hleGxState.auroraBeginCalled=false;
     g_hleGxState.fifoReadOffset = 0;
     g_hleGxState.fifoByteCount=0; g_hleGxState.ResetVertex();
 }
-PPC_NATIVE_OVERRIDE_VOID(8016f0f0, GX__Begin_8016f0f0, (uint32_t t, uint32_t vf, uint32_t nv), (t, vf, nv));
+PPC_NATIVE_OVERRIDE_VOID(8056A1FC, GX__Begin_8016f0f0, (uint32_t t, uint32_t vf, uint32_t nv), (t, vf, nv));
 
 extern "C" void GX__End_80044b30() { g_hleGxState.inBegin=false; GXEnd(); }
-PPC_NATIVE_OVERRIDE_VOID(80044b30, GX__End_80044b30, (), ());
+// SATBK-UNMAPPED(MKW 80044b30): PPC_NATIVE_OVERRIDE_VOID(80044b30, GX__End_80044b30, (), ());
 
 extern "C" void GX__End_80048c30() { GX__End_80044b30(); }
-PPC_NATIVE_OVERRIDE_VOID(80048c30, GX__End_80048c30, (), ());
+// SATBK-UNMAPPED(MKW 80048c30): PPC_NATIVE_OVERRIDE_VOID(80048c30, GX__End_80048c30, (), ());
 
 extern "C" void GX__DrawSphere_80172a30(uint32_t numMajor, uint32_t numMinor) {
     constexpr uint32_t kAttrCount = 26;
@@ -398,4 +415,4 @@ extern "C" void GX__DrawSphere_80172a30(uint32_t numMajor, uint32_t numMinor) {
         GX__SetVtxAttrFmt_8016dc68(GX_VTXFMT3, attr, static_cast<uint32_t>(fmt.cnt), static_cast<uint32_t>(fmt.type), fmt.frac);
     }
 }
-PPC_NATIVE_OVERRIDE_VOID(80172a30, GX__DrawSphere_80172a30, (uint32_t numMajor, uint32_t numMinor), (numMajor, numMinor));
+// SATBK-UNMAPPED(MKW 80172a30): PPC_NATIVE_OVERRIDE_VOID(80172a30, GX__DrawSphere_80172a30, (uint32_t numMajor, uint32_t numMinor), (numMajor, numMinor));

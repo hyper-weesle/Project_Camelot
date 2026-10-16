@@ -334,8 +334,8 @@ void SystemBridge::Initialize() {
     // These set up vtables and other critical infrastructure
     RT_LOG(RT_TAG_RUNTIME) << "Running static constructors for main DOL..." << std::endl;
 
-    const uint32_t dolCtorStart = 0x80244DE0;
-    const uint32_t dolCtorEnd = 0x80244EA0;
+    const uint32_t dolCtorStart = 0x80662E40;
+    const uint32_t dolCtorEnd = dolCtorStart; // SatBK: ctors run by the game's __init_user
 
     int dolCount = 0;
     for (uint32_t addr = dolCtorStart; addr < dolCtorEnd; addr += 4) {
@@ -370,46 +370,9 @@ void SystemBridge::Initialize() {
     }
     RT_LOG(RT_TAG_RUNTIME) << "Executed " << dolCount << " main DOL static constructors." << std::endl;
 
-    // StaticR.rel ctors must be run manually since we aren't using OSLink
-    RT_LOG(RT_TAG_RUNTIME) << "Running static constructors for StaticR.rel..." << std::endl;
-
-    // Define range for StaticR.rel .ctors
-    const uint32_t ctorStart = 0x8088f400;
-    const uint32_t ctorEnd = 0x8088f704;
-
-    int count = 0;
-    for (uint32_t addr = ctorStart; addr < ctorEnd; addr += 4) {
-        uint32_t funcAddr = 0;
-        try {
-            funcAddr = Memory::Read32(addr);
-        } catch (...) {
-            continue;
-        }
-
-        if (funcAddr == 0 || funcAddr == 0xFFFFFFFF) continue;
-
-        if (TranslatedFunctionRegistry::FindByAddressPtr(funcAddr)) {
-            MkwJmpBuf jumpBuf;
-            g_sehJumpTarget = &jumpBuf;
-            if (MKW_SETJMP(jumpBuf) == 0) {
-                cpu.gpr[1] = 0x81700000u;
-                InvokeIndirectCpu(funcAddr, &cpu);
-                count++;
-            } else {
-                RT_LOG(RT_TAG_RUNTIME) << "SEH Exception caught invoking ctor 0x" << std::hex << funcAddr
-                          << " code=0x" << g_sehLastExceptionCode
-                          << " at=0x" << g_sehLastExceptionAddress;
-                if (g_sehLastExceptionCode == 0xC0000005u && g_sehLastAccessedAddress != 0) {
-                    std::cerr << " " << (g_sehLastAccessType ? "write" : "read")
-                              << "=0x" << g_sehLastAccessedAddress;
-                }
-                std::cerr << std::dec << " - skipping." << std::endl;
-            }
-            g_sehJumpTarget = nullptr;
-        }
-    }
+    // Sonic and the Black Knight has no StaticR.rel; every constructor lives in the DOL.
     g_suppressSehReporting = false;
-    RT_LOG(RT_TAG_RUNTIME) << "Executed " << count << " static constructors." << std::endl;
+
 }
 
 void SystemBridge::WriteGuestMemorySnapshot(std::ostream& os, const std::filesystem::path& mem1Path) {
@@ -484,15 +447,15 @@ void SystemBridge::SeedLowMemDefaults(const Memory::Config& config) {
     };
 
     std::vector<SeedEntry> entries;
-    constexpr uint32_t kMem1ArenaLoDefault = 0x80399180u;
-    uint32_t mem1ArenaHiDefault = 0x817f0520u;
+    constexpr uint32_t kMem1ArenaLoDefault = 0x80820628u;
+    uint32_t mem1ArenaHiDefault = 0x817F0520u;
     constexpr uint32_t kBusClockHz =
         static_cast<uint32_t>(TimeBaseContract::kBusClockHz);
     constexpr uint32_t kCpuClockHz = kBusClockHz * 3u;
     // Mario Kart Wii boots under IOS36. These are the IOS kernel values that
     // Dolphin exposes in low memory for IOS36 (VersionInfo.cpp). SDK helpers
     // read them through the 0xC0000000 MEM1 alias.
-    constexpr uint32_t kIos36Version = 0x00240E18u;
+    constexpr uint32_t kIos36Version = 0x0037161Eu; // SatBK: IOS55 v5662
     constexpr uint32_t kIos36Date = 0x00030110u;
 
     constexpr uint32_t kMem2LoFloor = 0x90000800u;
@@ -508,10 +471,10 @@ void SystemBridge::SeedLowMemDefaults(const Memory::Config& config) {
     // Retro Rewind reads the region byte directly from here while building its
     // Retro-WFC payload URL, and OSGetAppGamename reads the app code mirrors
     // at 0x80003180/0x80003194 while building NAS auth fields.
-    entries.push_back({0x80000000u, 0x524D4350u, "Disc game code"}); // RMCP
-    entries.push_back({0x80000004u, 0x30310100u, "Disc maker/id"});  // 01 + disc 1
-    entries.push_back({0x80003180u, 0x524D4350u, "OS app game code"}); // RMCP
-    entries.push_back({0x80003194u, 0x524D4350u, "OS app gamename"});  // RMCP
+    entries.push_back({0x80000000u, 0x52454E45u, "Disc game code"}); // RENE
+    entries.push_back({0x80000004u, 0x38500000u, "Disc maker/id"});  // 8P, disc 0, rev 0
+    entries.push_back({0x80003180u, 0x52454E45u, "OS app game code"}); // RENE
+    entries.push_back({0x80003194u, 0x52454E45u, "OS app gamename"});  // RENE
     if (RuntimeProduct::IsRetroRewind()) {
         entries.push_back({0x800017D8u, 0x00000001u, "Retro Rewind recomp runtime marker", true});
     }
@@ -534,6 +497,8 @@ void SystemBridge::SeedLowMemDefaults(const Memory::Config& config) {
     entries.push_back({0x800000FCu, kCpuClockHz, "__OSClock"});
     entries.push_back({0x80003140u, kIos36Version, "IOS36 version"});
     entries.push_back({0x80003144u, kIos36Date, "IOS36 date"});
+    // The apploader stores the TMD's required IOS here; OSInit refuses to run if it differs.
+    entries.push_back({0x80003188u, kIos36Version, "Required IOS version"});
 
     if (mem1Size != 0) {
         const uint32_t mem1End = Memory::kMem1CachedBase + mem1Size;

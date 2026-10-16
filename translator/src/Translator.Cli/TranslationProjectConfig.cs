@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -83,6 +84,17 @@ internal sealed class TranslationProjectConfig
                 relInput.Sha256,
                 ParseUInt32(relDto.LoadAddress, null, "inputs.rel.load_address"));
         }
+
+        // Pre-relocated guest images (e.g. a dynamically linked RSO module at the address the
+        // game links it to). Copied verbatim into the translation image; never embedded.
+        var flatImages = new List<ProjectRelInput>();
+        foreach (var (flatDto, index) in (dto.Inputs?.FlatImages ?? []).Select((v, i) => (v, i)))
+        {
+            var flatInput = ResolveInput(workspaceRoot, flatDto, $"inputs.flat_images[{index}]");
+            flatImages.Add(new ProjectRelInput(flatInput.Path, flatInput.Sha256,
+                ParseUInt32(flatDto.LoadAddress, null, $"inputs.flat_images[{index}].load_address")));
+        }
+        FlatImageInputs.Current = flatImages;
 
         var entryPoints = (dto.Translation?.EntryPoints ?? [])
             .Select((value, index) => ParseUInt32(value, null, $"translation.entry_points[{index}]"))
@@ -384,6 +396,7 @@ internal sealed class TranslationProjectConfig
     {
         public BinaryInputDto? Dol { get; init; }
         public RelInputDto? Rel { get; init; }
+        public List<RelInputDto>? FlatImages { get; init; }
     }
 
     private class BinaryInputDto
@@ -469,6 +482,11 @@ internal sealed record ProjectMemory(uint Base, int Size, uint? SdaBase = null, 
 internal record ProjectBinaryInput(string Path, string? Sha256);
 internal sealed record ProjectRelInput(string Path, string? Sha256, uint LoadAddress) : ProjectBinaryInput(Path, Sha256);
 internal sealed record ProjectInputs(ProjectBinaryInput Dol, ProjectRelInput? Rel);
+
+internal static class FlatImageInputs
+{
+    public static IReadOnlyList<ProjectRelInput> Current { get; set; } = [];
+}
 internal sealed record ProjectTranslation(
     IReadOnlyList<uint> EntryPoints,
     string? FunctionMapPath,

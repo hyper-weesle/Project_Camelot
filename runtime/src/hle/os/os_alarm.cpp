@@ -14,8 +14,8 @@
 #include "generated/RuntimeConfig.h"
 #include "os_internal.h"
 
-extern "C" void func_801AADE0(CpuContext* ctx);
-extern "C" void func_801A0620(CpuContext* ctx);
+extern "C" void func_80545B18(CpuContext* ctx);
+extern "C" void func_8053C354(CpuContext* ctx);
 
 // ============================================================================
 // Alarm queue helpers
@@ -208,7 +208,7 @@ bool ProcessAlarmQueue(CpuContext* cpu, int maxToProcess)
                     cpu->gpr[5] = 0;
                     cpu->gpr[6] = 0;
                     cpu->gpr[7] = handler;
-                    func_801A0620(cpu);
+                    func_8053C354(cpu);
                 }
 
                 if (handler != 0) {
@@ -345,7 +345,7 @@ extern "C" void OSSetAlarm_HLE_801a0870(CpuContext* ctx)
 
     OS__RestoreInterrupts_801a65d4(level);
 }
-PPC_NATIVE_OVERRIDE_VOID(801A0870, OSSetAlarm_HLE_801a0870, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(8053C5A4, OSSetAlarm_HLE_801a0870, (CpuContext* ctx), (ctx));
 
 extern "C" void OS_HLE_ProcessAlarms(int maxToProcess)
 {
@@ -422,7 +422,7 @@ extern "C" void OS__SetPeriodicAlarm_801a08e0(CpuContext* ctx)
 
     cpu->gpr[3] = startHi;
     cpu->gpr[4] = startLo;
-    func_801AADE0(cpu);
+    func_80545B18(cpu);
     Memory::Write32(alarm + 0x20u, cpu->gpr[3]);
     Memory::Write32(alarm + 0x24u, cpu->gpr[4]);
 
@@ -430,13 +430,13 @@ extern "C" void OS__SetPeriodicAlarm_801a08e0(CpuContext* ctx)
     cpu->gpr[5] = 0;
     cpu->gpr[6] = 0;
     cpu->gpr[7] = handler;
-    func_801A0620(cpu);
+    func_8053C354(cpu);
 
     cpu->gpr[3] = static_cast<uint32_t>(OS__RestoreInterrupts_801a65d4(level));
 }
 
 // Register the function
-PPC_NATIVE_OVERRIDE_VOID(801A08E0, OS__SetPeriodicAlarm_801a08e0, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(8053C614, OS__SetPeriodicAlarm_801a08e0, (CpuContext* ctx), (ctx));
 
 // RFLiIsWorking (RFL, the Mii library) lives here because its whole job is to
 // pump this file's alarm queue: RFLInitRes spins on it waiting for async RFL
@@ -473,4 +473,4 @@ extern "C" uint32_t RFLiIsWorking_HLE_800bd860()
         return 0;
     }
 }
-PPC_NATIVE_OVERRIDE(800BD860, RFLiIsWorking_HLE_800bd860, uint32_t, (), ());
+// SATBK-UNMAPPED(MKW 800bd860): PPC_NATIVE_OVERRIDE(800BD860, RFLiIsWorking_HLE_800bd860, uint32_t, (), ());

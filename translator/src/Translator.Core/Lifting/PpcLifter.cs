@@ -369,10 +369,15 @@ public sealed partial class PpcLifter
 
             case "stwcx." when operands.Count == 3:
                 {
+                    // Guest threads are cooperative host fibers: nothing can run between this
+                    // thread's lwarx and stwcx. without an explicit call, so the reservation is
+                    // always intact. Lower to a plain store with CR0 = EQ (| XER.SO), using a
+                    // compare of 0 against 0 so the CR stays in the translator's localized form.
                     var addr = $"addr_stwcx_{ins.Address:X8}_loc";
-                    return BuildIndexedAddress(Reg(1), Reg(2), addr, a => new[]
+                    return BuildIndexedAddress(Reg(1), Reg(2), addr, a => new IrInstruction[]
                     {
-                        new IrCall(string.Empty, "PPC_Stwcx", new[] { IrValue.Register(a), IrValue.Register(Reg(0)) })
+                        new IrStore(new IrAddress(a, 0), IrValue.Register(Reg(0)), 4),
+                        new IrSetCrField(0, IrValue.Imm(0), IrValue.Imm(0), false)
                     });
                 }
 

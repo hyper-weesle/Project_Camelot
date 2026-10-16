@@ -24,8 +24,8 @@ extern "C" GXFifoObj* GXInit(void* base, u32 size);
  */
 extern "C" uint32_t GX__Init_8016b850(uint32_t fifoBase, uint32_t fifoSize)
 {
-    constexpr uint32_t kFifoObjAddr = 0x80343740u;
-    constexpr uint32_t kGXDataAddr = 0x803437C0u;
+    constexpr uint32_t kFifoObjAddr = 0x80780560u;
+    constexpr uint32_t kGXDataAddr = 0x807805E0u; // __GXData (FifoObj + 0x80)
     constexpr uint32_t kGXDataSize = 0x600u;
 
     GXInit(GuestToHostPtr(fifoBase, fifoSize), fifoSize);
@@ -83,7 +83,7 @@ extern "C" uint32_t GX__Init_8016b850(uint32_t fifoBase, uint32_t fifoSize)
 
     return kFifoObjAddr;
 }
-PPC_NATIVE_OVERRIDE(8016b850, GX__Init_8016b850, uint32_t, (uint32_t fifoBase, uint32_t fifoSize), (fifoBase, fifoSize));
+PPC_NATIVE_OVERRIDE(805672AC, GX__Init_8016b850, uint32_t, (uint32_t fifoBase, uint32_t fifoSize), (fifoBase, fifoSize));
 
 // ============================================================================
 // FIFO Management
@@ -92,29 +92,29 @@ PPC_NATIVE_OVERRIDE(8016b850, GX__Init_8016b850, uint32_t, (uint32_t fifoBase, u
 extern "C" void GX__InitFifoBase_8016c7c8(uint32_t fa, uint32_t ba, uint32_t s) { GXInitFifoBase((GXFifoObj*)GuestToHostPtr(fa, sizeof(GXFifoObj)), GuestToHostPtr(ba, s), s); }
 
 extern "C" void GX__SetCPUFifo_8016c94c(uint32_t fa) { GXSetCPUFifo((GXFifoObj*)GuestToHostPtr(fa, sizeof(GXFifoObj))); }
-PPC_NATIVE_OVERRIDE_VOID(8016c94c, GX__SetCPUFifo_8016c94c, (uint32_t fa), (fa));
+PPC_NATIVE_OVERRIDE_VOID(805683A8, GX__SetCPUFifo_8016c94c, (uint32_t fa), (fa));
 
 extern "C" void GX__SetGPFifo_8016cb2c(uint32_t fa) { GXSetGPFifo((GXFifoObj*)GuestToHostPtr(fa, sizeof(GXFifoObj))); }
-PPC_NATIVE_OVERRIDE_VOID(8016cb2c, GX__SetGPFifo_8016cb2c, (uint32_t fa), (fa));
+PPC_NATIVE_OVERRIDE_VOID(80568588, GX__SetGPFifo_8016cb2c, (uint32_t fa), (fa));
 
 extern "C" void __GX__SaveFifo_8016cdbc(uint32_t fa) { GXSaveCPUFifo((GXFifoObj*)GuestToHostPtr(fa, sizeof(GXFifoObj))); }
-PPC_NATIVE_OVERRIDE_VOID(8016cdbc, __GX__SaveFifo_8016cdbc, (uint32_t fa), (fa));
+PPC_NATIVE_OVERRIDE_VOID(80568818, __GX__SaveFifo_8016cdbc, (uint32_t fa), (fa));
 
 extern "C" void GX__GetCPUFifo_8016cf10(uint32_t fa) { auto* d=(GXFifoObj*)GuestToHostPtr(fa, sizeof(GXFifoObj)); auto* s=GXGetCPUFifo(); if(d&&s) std::memcpy(d,s,sizeof(GXFifoObj)); }
-PPC_NATIVE_OVERRIDE_VOID(8016cf10, GX__GetCPUFifo_8016cf10, (uint32_t fa), (fa));
+PPC_NATIVE_OVERRIDE_VOID(80568920, GX__GetCPUFifo_8016cf10, (uint32_t fa), (fa));
 
 extern "C" void __GX__FifoInit_8016d180()
 {
     constexpr uint32_t kCpInterruptId = 0x11u;
     constexpr uint32_t kCpInterruptMask = 0x4000u;
-    constexpr uint32_t kCpInterruptHandlerAddr = 0x8016c668u;
-    constexpr uint32_t kGxCurrentThreadPtrAddr = 0x803867c4u;
-    constexpr uint32_t kGxThreadQueueAddr = 0x803867c0u;
-    constexpr uint32_t kCpuFifoObjAddr = 0x80343de4u;
-    constexpr uint32_t kGpFifoObjAddr = 0x80343dc0u;
+    constexpr uint32_t kCpInterruptHandlerAddr = 0x805680C4u;
+    constexpr uint32_t kGxCurrentThreadPtrAddr = 0x80805554u;
+    constexpr uint32_t kGxThreadQueueAddr = 0x80805550u;
+    constexpr uint32_t kCpuFifoObjAddr = 0x80780C04u;
+    constexpr uint32_t kGpFifoObjAddr = 0x80780BE0u;
     constexpr size_t kFifoObjSize = 0x24u;
-    constexpr uint32_t kFifoWrapFlagAddr = 0x803867b0u;
-    constexpr uint32_t kFifoWrapFlag2Addr = 0x803867b1u;
+    constexpr uint32_t kFifoWrapFlagAddr = 0x80805540u;
+    constexpr uint32_t kFifoWrapFlag2Addr = 0x80805541u;
 
     __OSSetInterruptHandler_801a65f8_hle(kCpInterruptId, kCpInterruptHandlerAddr);
     __OSUnmaskInterrupts_801a69bc_hle(kCpInterruptMask);
@@ -141,9 +141,9 @@ extern "C" void __GX__PEInit_8016ee14()
     constexpr uint32_t kPeFinishInterruptId = 0x13u;
     constexpr uint32_t kPeTokenInterruptMask = 0x1000u;
     constexpr uint32_t kPeFinishInterruptMask = 0x2000u;
-    constexpr uint32_t kPeTokenHandlerAddr = 0x8016eccc;
-    constexpr uint32_t kPeFinishHandlerAddr = 0x8016ed94;
-    constexpr uint32_t kPeThreadQueueAddr = 0x803867d0u;
+    constexpr uint32_t kPeTokenHandlerAddr = 0x80569DD8;
+    constexpr uint32_t kPeFinishHandlerAddr = 0x80569EA0;
+    constexpr uint32_t kPeThreadQueueAddr = 0x80805560u;
 
     __OSSetInterruptHandler_801a65f8_hle(kPeTokenInterruptId, kPeTokenHandlerAddr);
     __OSSetInterruptHandler_801a65f8_hle(kPeFinishInterruptId, kPeFinishHandlerAddr);
@@ -159,7 +159,7 @@ extern "C" void __GX__PEInit_8016ee14()
         }
     } catch (const ::Memory::AccessViolation&) {}
 }
-PPC_NATIVE_OVERRIDE_VOID(8016ee14, __GX__PEInit_8016ee14, (), ());
+PPC_NATIVE_OVERRIDE_VOID(80569F20, __GX__PEInit_8016ee14, (), ());
 
 // ============================================================================
 // Display List Recording
@@ -170,30 +170,30 @@ extern "C" void GX__BeginDisplayList_80172e00(uint32_t la, uint32_t s) {
         uint32_t gd = Memory::Read32(kGXDataPtrAddr);
         if (!gd) return;
         if (Memory::Read32(gd + 0x5FCu)) GX__SetDirtyState_8016ee78();
-        if (Memory::Read8(gd + 0x5F9u)) std::memcpy(Memory::GetPointer(0x80344110, 0x600), Memory::GetPointer(gd, 0x600), 0x600);
-        Memory::Write32(0x80344094, la + s - 4u);
-        Memory::Write32(0x803440AC, 0);
-        Memory::Write32(0x80344090, la);
-        Memory::Write32(0x80344098, s);
-        Memory::Write32(0x803440A4, la);
-        Memory::Write32(0x803440A8, la);
+        if (Memory::Read8(gd + 0x5F9u)) std::memcpy(Memory::GetPointer(0x80780CA8, 0x600), Memory::GetPointer(gd, 0x600), 0x600);
+        Memory::Write32(0x80780C2C, la + s - 4u);
+        Memory::Write32(0x80780C44, 0);
+        Memory::Write32(0x80780C28, la);
+        Memory::Write32(0x80780C30, s);
+        Memory::Write32(0x80780C3C, la);
+        Memory::Write32(0x80780C40, la);
         Memory::Write8(gd + 0x5F8u, 1u);
         // Mirror the guest fifo-object fields the FIFO write path consumes so
         // HleFifoWrite never has to read them back out of guest memory.
         BeginDisplayListRecording(la, s);
         GXFlush();
-        GX__GetCPUFifo_8016cf10(0x80344710);
-        GX__SetCPUFifo_8016c94c(0x80344090);
+        GX__GetCPUFifo_8016cf10(0x807812A8);
+        GX__SetCPUFifo_8016c94c(0x80780C28);
     } catch (...) {}
 }
-PPC_NATIVE_OVERRIDE_VOID(80172e00, GX__BeginDisplayList_80172e00, (uint32_t la, uint32_t s), (la, s));
+PPC_NATIVE_OVERRIDE_VOID(8056DB48, GX__BeginDisplayList_80172e00, (uint32_t la, uint32_t s), (la, s));
 
 extern "C" uint32_t GX__EndDisplayList_80172eb4() {
     try {
         GXFlush();
-        GX__GetCPUFifo_8016cf10(0x80344090);
+        GX__GetCPUFifo_8016cf10(0x80780C28);
         const uint8_t wrapped = Memory::Read8(kDlFifoAddr + kDlWrapFlagOffset);
-        GX__SetCPUFifo_8016c94c(0x80344710);
+        GX__SetCPUFifo_8016c94c(0x807812A8);
 
         const uint32_t gd = Memory::Read32(kGXDataPtrAddr);
         if (gd) {
@@ -201,7 +201,7 @@ extern "C" uint32_t GX__EndDisplayList_80172eb4() {
                 const int32_t interruptLevel = OS__DisableInterrupts_801a65ac();
                 const uint32_t savedWord8 = Memory::Read32(gd + 0x08u);
                 std::memcpy(Memory::GetPointer(gd, 0x600),
-                            Memory::GetPointer(0x80344110, 0x600),
+                            Memory::GetPointer(0x80780CA8, 0x600),
                             0x600);
                 Memory::Write32(gd + 0x08u, savedWord8);
                 OS__RestoreInterrupts_801a65d4(interruptLevel);
@@ -223,11 +223,11 @@ extern "C" uint32_t GX__EndDisplayList_80172eb4() {
         return 0;
     }
 }
-PPC_NATIVE_OVERRIDE(80172EB4, GX__EndDisplayList_80172eb4, uint32_t, (), ());
+PPC_NATIVE_OVERRIDE(8056DBFC, GX__EndDisplayList_80172eb4, uint32_t, (), ());
 
 // ============================================================================
 // Flush
 // ============================================================================
 
 extern "C" void GX__Flush_8016e654() { GXFlush(); }
-PPC_NATIVE_OVERRIDE_VOID(8016e654, GX__Flush_8016e654, (), ());
+PPC_NATIVE_OVERRIDE_VOID(805697E8, GX__Flush_8016e654, (), ());

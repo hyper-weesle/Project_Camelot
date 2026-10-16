@@ -562,8 +562,14 @@ static Mat4x4<float> effective_projection() noexcept {
   const auto& vp = g_gxState.renderViewport;
   const bool flip = (vp.znear <= vp.zfar) == UseReversedZ;
   Mat4x4<float> proj = g_gxState.proj;
+  // GX geometry placed exactly on the near or far plane (common for 2D overlays: an ortho
+  // projection with the vertices at z = -near) lands on the clip boundary, where float rounding
+  // in the matrix product decides whether the host GPU clips it. The GX hardware draws it, so map
+  // GX depth [0, 1] onto [kDepthEps, 1 - kDepthEps] to keep boundary geometry inside the clip volume.
+  constexpr float kDepthEps = 1.0f / 1048576.0f;
   for (size_t i = 0; i < 4; ++i) {
-    proj.m2.m[i] = flip ? -proj.m2.m[i] : (proj.m2.m[i] + proj.m3.m[i]);
+    const float z = flip ? -proj.m2.m[i] : (proj.m2.m[i] + proj.m3.m[i]);
+    proj.m2.m[i] = z * (1.0f - 2.0f * kDepthEps) + proj.m3.m[i] * kDepthEps;
   }
   return proj;
 }

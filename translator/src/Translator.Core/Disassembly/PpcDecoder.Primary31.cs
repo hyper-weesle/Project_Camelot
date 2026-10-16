@@ -327,7 +327,7 @@ public static partial class PpcDecoder
                 operands.Add(Reg(rb));
                 break;
 
-            case 498: // stwcx. rS,rA,rB
+            case 150: // stwcx. rS,rA,rB (XO 150)
                 mnemonic = "stwcx.";
                 operands.Add(Reg(rs));
                 operands.Add(Reg(ra));

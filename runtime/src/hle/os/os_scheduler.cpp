@@ -119,7 +119,7 @@ static void TryInvokeSwitchCallback(uint32_t oldCtx, uint32_t newCtx, CpuContext
 
 // Forward declare for SelectThread to use
 extern "C" void OS__SetCurrentContext_801a1e70(uint32_t contextAddr);
-extern "C" void func_801A1ED8(CpuContext* ctx);
+extern "C" void func_8053DAB0(CpuContext* ctx);
 
 // ============================================================================
 // SelectThread HLE - Thread Scheduler (Fiber-Aware)
@@ -200,7 +200,7 @@ extern "C" void SelectThread_801a9c08(CpuContext* ctx)
             const uint16_t modeFlags = ::Memory::Read16(runningContext + 0x1A2u);
             if ((modeFlags & 0x0002u) == 0) {
                 cpu->gpr[3] = runningContext;
-                func_801A1ED8(cpu);
+                func_8053DAB0(cpu);
                 if (cpu->gpr[3] != 0) {
                     cpu->gpr[3] = 0;
                     return;
@@ -374,7 +374,7 @@ extern "C" void SelectThread_801a9c08(CpuContext* ctx)
     OS__LoadContext_801a1f58(cpu);
 }
 
-PPC_NATIVE_OVERRIDE_VOID(801A9C08, SelectThread_801a9c08, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(805449BC, SelectThread_801a9c08, (CpuContext* ctx), (ctx));
 
 // ============================================================================
 // OSWakeupThread HLE - drain a thread queue and mark threads runnable
@@ -461,7 +461,7 @@ void OS_HLE_WakeupThreadNoReschedule(CpuContext* ctx, uint32_t waitQueue)
     cpu->gpr[3] = savedR3;
 }
 
-PPC_NATIVE_OVERRIDE_VOID(801AAAA4, OSWakeupThread_HLE_801aaaa4, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(80545784, OSWakeupThread_HLE_801aaaa4, (CpuContext* ctx), (ctx));
 
 extern "C" void OSSleepThread_HLE_801aa9b8(CpuContext* ctx);
 
@@ -513,7 +513,7 @@ extern "C" void OSLockMutex_HLE_801a7ee4(CpuContext* ctx)
 
     OS__RestoreInterrupts_801a65d4(irqState);
 }
-PPC_NATIVE_OVERRIDE_VOID(801A7EE4, OSLockMutex_HLE_801a7ee4, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(80542958, OSLockMutex_HLE_801a7ee4, (CpuContext* ctx), (ctx));
 
 extern "C" void OSUnlockMutex_HLE_801a7fc0(CpuContext* ctx)
 {
@@ -559,5 +559,5 @@ extern "C" void OSUnlockMutex_HLE_801a7fc0(CpuContext* ctx)
 
     OS__RestoreInterrupts_801a65d4(irqState);
 }
-PPC_NATIVE_OVERRIDE_VOID(801A7FC0, OSUnlockMutex_HLE_801a7fc0, (CpuContext* ctx), (ctx));
+PPC_NATIVE_OVERRIDE_VOID(80542A34, OSUnlockMutex_HLE_801a7fc0, (CpuContext* ctx), (ctx));
 

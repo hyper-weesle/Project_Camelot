@@ -256,6 +256,11 @@ function(mkw_configure_product target)
                 set(runtime_dll_path "${mkw_compiler_bin}/${runtime_dll}")
             endif()
             if(NOT EXISTS "${runtime_dll_path}")
+                # Linux-hosted llvm-mingw keeps the target DLLs in <root>/x86_64-w64-mingw32/bin.
+                get_filename_component(mkw_compiler_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+                set(runtime_dll_path "${mkw_compiler_bin}/../x86_64-w64-mingw32/bin/${runtime_dll}")
+            endif()
+            if(NOT EXISTS "${runtime_dll_path}")
                 message(FATAL_ERROR "llvm-mingw runtime DLL not found: ${runtime_dll}")
             endif()
             add_custom_command(TARGET ${target} POST_BUILD

@@ -11,27 +11,37 @@ project:
 
 memory:
   base: 0x80000000
-  size: 0x01800000
+  # MEM1 plus the bottom of MEM2, where the game links the hbm_part.rso module.
+  size: 0x100A0000
   sda_base: 0x808066C0
   sda2_base: 0x8080DA60
 
 inputs:
   dol:
     path: GameData/sys/main.dol
+  # hbm_part.rso (Home Button menu + CRI Sofdec player) linked exactly as the game links it,
+  # generated from the user's GameData by tools/satbk_rso_image.py at translation time.
+  flat_images:
+    - path: generated/rso/hbm_stubs.bin
+      load_address: 0x90000860
+    - path: generated/rso/hbm_linked.bin
+      load_address: 0x900022E0
 
 translation:
   entry_points:
     - 0x80006124
   function_map:
-    path: projects/satbk/MAP.txt
+    path: generated/function_map.txt
   allow_unsupported_instructions: true
 
 runtime:
-  native_abi_directories: []
+  native_registration_root: runtime/src
+  native_abi_directories:
+    - runtime/src/hle/gx
 
 output:
-  root: build/satbk
+  root: generated
   functions: functions
   runtime_config: RuntimeConfig.h
   data_initializer: data_sections_init.cpp
-  base_manifest: build/satbk/base/satbk_base_manifest.json
+  base_manifest: ../build/base/satbk_base_manifest.json
