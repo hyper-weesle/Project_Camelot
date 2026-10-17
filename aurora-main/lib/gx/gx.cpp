@@ -1783,6 +1783,13 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
   config.shaderConfig.fogType = effective_pipeline_fog_type(
       g_gxState.fog.type, g_gxState.zTextureOp, g_gxState.zCompLocBeforeTex,
       g_gxState.blendMode, g_gxState.blendOp);
+  // Perspective fog on an orthographic (2D) draw: SatBK leaves the level's fog enabled when it
+  // returns to the menus, whose 2D layouts are drawn at the far plane, and every menu came out as
+  // a flat fog-coloured screen. 2D layouts are never meant to be fogged.
+  if (config.shaderConfig.fogType != GX_FOG_NONE && (config.shaderConfig.fogType & 0x8u) == 0 &&
+      g_gxState.projType == GX_ORTHOGRAPHIC) {
+    config.shaderConfig.fogType = GX_FOG_NONE;
+  }
   config.shaderConfig.fogRangeAdjust =
       config.shaderConfig.fogType != GX_FOG_NONE && (g_gxState.fogRange[0] & (1u << 10)) != 0;
   u8 vtxOffset = 0;

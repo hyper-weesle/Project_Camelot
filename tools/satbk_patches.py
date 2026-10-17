@@ -635,6 +635,12 @@ patch('src/hle/gx/gx_utils.cpp', [
 _trace_fn('src/hle/gx/gx_copy.cpp', 'extern "C" void GX__SetDispCopySrc_8016f438(', 'DispCopySrc %u %u %u %u', 'l, t, w, h')
 _trace_fn('src/hle/gx/gx_copy.cpp', 'extern "C" void GX__SetDispCopyDst_8016f4b8(', 'DispCopyDst %u %u', 'w, h')
 _trace_fn('src/hle/gx/gx_pixel.cpp', 'extern "C" void GX__SetPixelFmt_80172888(', 'PixelFmt %u %u', 'pf, zf')
+_trace_fn('src/hle/gx/gx_dl.cpp', 'extern "C" void GX__CallDisplayList_80172f64(', 'CallDL %08X %u', 'listAddr, nbytes')
+_trace_fn('src/hle/gx/gx_pixel.cpp', 'extern "C" void GX__SetFog_801722cc(', 'SetFog t=%u sz=%g ez=%g nz=%g fz=%g', 't, sz, ez, nz, fz')
+_trace_fn('src/hle/gx/gx_transform.cpp', 'extern "C" void GX__SetViewportJitter_80173378(', 'ViewportJitter %g %g %g %g %g %g f=%u', 'l, t, w, h, nz, fz, f')
+_trace_fn('src/hle/gx/gx_texture.cpp', 'extern "C" void GX__InitTlutObj_80170f80(', 'InitTlutObj oa=%08X da=%08X f=%u n=%u', 'oa, da, f, e')
+_trace_fn('src/hle/gx/gx_texture.cpp', 'extern "C" void GX__LoadTlut_80170fa8(', 'LoadTlut oa=%08X slot=%u', 'oa, tl')
+_trace_fn('src/hle/gx/gx_copy.cpp', 'extern "C" void GX__CopyTex_8016fd74(', 'CopyTex %08X clear=%u', 'da, c')
 
 # Gate every SATBK_GXTRACE trace on a frame window (SATBK_GXTRACE=<first frame>,<frame count>).
 import re as _re
@@ -647,3 +653,76 @@ for _root, _dirs, _files in os.walk('src/hle/gx'):
         if _n != _s:
             _n = _n.replace('#include <cstdlib>\n', '#include <cstdlib>\nextern "C" bool SatbkGxTraceOn();\n', 1)
             open(_p, 'w').write(_n)
+
+# Dev: SATBK_DMAWATCH=<hex addr>,<hex len> logs every DVD DMA that lands in that guest range.
+patch('src/hle/storage/dvd.cpp', [
+    ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
+''', '''extern "C" void SatbkTitlePromptArm();
+static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
+'''),
+    ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
+''', '''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
+    {
+        static uint32_t wa = 0, wl = 0;
+        static const bool parsed = [] { if (const char* e = std::getenv("SATBK_DMAWATCH")) { wa = std::strtoul(e, nullptr, 16); if (const char* c = std::strchr(e, ',')) wl = std::strtoul(c + 1, nullptr, 16); } return true; }();
+        (void)parsed;
+        const uint32_t d = dest | 0x80000000u;
+        if (wl != 0 && d < wa + wl && d + size > wa) std::fprintf(stderr, "[dmawatch] dvd dest=%08X size=%zX\\n", dest, size);
+    }
+'''),
+])
+
+patch('src/hle/storage/dvd.cpp', [
+    ('''    CopyToGuestAsDma(bufferPtr, tempBuf.data(), uLength);
+
+    Memory::Write32(fileInfoPtr + DVD_CB_OFFSET_TRANSFERRED, uLength);''', '''    { static const bool dvdlog = std::getenv("SATBK_DVDLOG") != nullptr;
+      if (dvdlog) std::fprintf(stderr, "[dvdlog] %s off=%X len=%X dest=%08X thread=%08X\\n", HostPathText(entry.hostPath).c_str(), uOffset, uLength, bufferPtr, Memory::Read32(0x800000E4u));
+      // A fresh start of the title movie (not its loop restart) means the title prompt is up.
+      static bool lastMovieWasTitle = false;
+      if (entry.hostPath.extension() == ".sfd") {
+          const bool isTitle = entry.hostPath.filename() == "titleloop.sfd";
+          if (isTitle && uOffset == 0 && !lastMovieWasTitle) SatbkTitlePromptArm();
+          lastMovieWasTitle = isTitle;
+      } }
+    CopyToGuestAsDma(bufferPtr, tempBuf.data(), uLength);
+
+    Memory::Write32(fileInfoPtr + DVD_CB_OFFSET_TRANSFERRED, uLength);'''),
+])
+
+
+
+# Full-screen EFB copies are screen snapshots the game keeps drawing through scene transitions.
+# The level loader reuses that (already released) RAM long before the transition ends, because
+# disc reads are instant here; retiring the GPU copy on that CPU write made the loading screen
+# and the menus after quitting a level sample the loader's data. Keep full-screen copies alive
+# until the game copies into them again.
+patch('src/hle/gx/gx_copy.cpp', [
+    ('''            if (dirtyEnd <= copyStart || dirtyStart >= copyEnd) {
+                ++it;
+                continue;
+            }
+            retired.push_back(it->first);''', '''            if (dirtyEnd <= copyStart || dirtyStart >= copyEnd || it->second >= 512u * 448u * 2u) {
+                ++it;
+                continue;
+            }
+            retired.push_back(it->first);'''),
+])
+
+patch('src/hle/gx/gx_guest_write_hooks.cpp', [
+    ('''void InstallAuroraHooks() {
+''', '''void InstallAuroraHooks() {
+    if (std::getenv("SATBK_NOWRITETRACK")) return; // dev: always re-digest texture sources
+'''),
+    ('#include <cstdio>\n', '#include <cstdio>\n#include <cstdlib>\n'),
+])
+
+# Dev: SATBK_DLLOG logs every display list the game records.
+patch('src/hle/gx/gx_init.cpp', [
+    ('#include "gx_internal.h"\n', '#include "gx_internal.h"\n#include <cstdlib>\n#include <cstdio>\n'),
+    ('''extern "C" void GX__BeginDisplayList_80172e00(uint32_t la, uint32_t s) {
+    try {''', '''extern "C" void GX__BeginDisplayList_80172e00(uint32_t la, uint32_t s) {
+    { static const bool dllog = std::getenv("SATBK_DLLOG") != nullptr; static int n = 0;
+      if (dllog && n++ < 200) std::fprintf(stderr, "[dllog] BeginDisplayList %08X size=%u lr=%08X\\n", la, s, TryGetCpuContext() ? TryGetCpuContext()->lr : 0u); }
+    try {'''),
+])
+

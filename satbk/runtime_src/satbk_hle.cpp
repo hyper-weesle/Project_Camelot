@@ -154,3 +154,13 @@ extern "C" void SatbkStrapUpdate(CpuContext* ctx) {
     }
 }
 REGISTER_NATIVE_FUNCTION_AS(0x8034A0A0, SatbkStrapUpdate, "SatbkStrapUpdate");
+
+// --- Start on the title screen --------------------------------------------------------------
+// The title screen asks for A+B held together. It is the only screen that plays titleloop.sfd
+// from its first byte, so starting that movie arms a one-shot "Start = A+B"; it disarms once
+// used, or once A+B were pressed for real (the file-select menu shares the same movie).
+#include <atomic>
+namespace { std::atomic<bool> s_titlePromptArmed{false}; }
+extern "C" void SatbkTitlePromptArm() { s_titlePromptArmed.store(true); std::fprintf(stderr, "[satbk] title prompt: Start = A+B\n"); }
+extern "C" bool SatbkTitlePromptArmed() { return s_titlePromptArmed.load(); }
+extern "C" void SatbkTitlePromptDisarm() { if (s_titlePromptArmed.exchange(false)) std::fprintf(stderr, "[satbk] title prompt done\n"); }

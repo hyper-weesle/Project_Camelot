@@ -1736,7 +1736,11 @@ static void handle_xf(const u8* data, u32& pos, u32 size, bool bigEndian) {
         if (projOff < g_gxState.xfProjection.size()) {
           g_gxState.xfProjection[projOff] = read_f32(xfData + i * 4, bigEndian);
         } else {
-          g_gxState.projType = static_cast<GXProjectionType>(val);
+          const auto type = static_cast<GXProjectionType>(val);
+          if (type != g_gxState.projType) {
+            g_gxState.projType = type;
+            mark_pipeline_state_dirty(); // the fog setup depends on it (see populate_pipeline_config)
+          }
         }
         projectionUpdated = true;
         break;
