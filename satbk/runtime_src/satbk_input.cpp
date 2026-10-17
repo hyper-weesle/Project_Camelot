@@ -232,8 +232,39 @@ void RefreshPad() {
     PADRead(statuses);
     WiiRemoteInput::HideRemotesFromPad(statuses, PAD_CHANMAX);
     InputBindings::Apply(statuses);
+    // One player: every PC pad (whatever port SDL/aurora put it on) and the keyboard all drive
+    // Wii Remote 1. Each control takes whichever source is pushed furthest.
+    PADStatus merged{};
+    merged.err = PAD_ERR_NO_CONTROLLER;
+    const auto pick = [](int8_t a, int8_t b) { return std::abs(b) > std::abs(a) ? b : a; };
     for (uint32_t i = 0; i < PAD_CHANMAX; ++i) {
-        g_pad[i] = statuses[i];
+        const PADStatus& p = statuses[i];
+        if (p.err != PAD_ERR_NONE) {
+            continue;
+        }
+        merged.err = PAD_ERR_NONE;
+        merged.button |= p.button;
+        merged.stickX = pick(merged.stickX, p.stickX);
+        merged.stickY = pick(merged.stickY, p.stickY);
+        merged.substickX = pick(merged.substickX, p.substickX);
+        merged.substickY = pick(merged.substickY, p.substickY);
+        merged.triggerLeft = std::max(merged.triggerLeft, p.triggerLeft);
+        merged.triggerRight = std::max(merged.triggerRight, p.triggerRight);
+    }
+    g_pad[0] = merged;
+    for (uint32_t i = 1; i < PAD_CHANMAX; ++i) {
+        g_pad[i] = PADStatus{};
+        g_pad[i].err = PAD_ERR_NO_CONTROLLER;
+    }
+    // Report controller assignment changes, so a log shows which pad the game is reading.
+    static int32_t lastIndex[PAD_CHANMAX] = {-2, -2, -2, -2};
+    for (uint32_t i = 0; i < PAD_CHANMAX; ++i) {
+        const int32_t index = PADGetIndexForPort(i);
+        if (index != lastIndex[i]) {
+            lastIndex[i] = index;
+            const char* name = index >= 0 ? PADGetName(i) : nullptr;
+            std::fprintf(stderr, "[satbk] pad port %u: %s\n", i, index >= 0 ? (name ? name : "controller") : "none");
+        }
     }
 }
 
