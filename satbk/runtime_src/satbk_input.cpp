@@ -46,6 +46,7 @@
 #include <string>
 
 extern "C" bool SatbkTitlePromptArmed();
+extern "C" bool SatbkHomeMenuAllowed();
 extern "C" void SatbkTitlePromptDisarm();
 namespace {
 
@@ -345,7 +346,7 @@ bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
         if (p.substickY > 50) hold |= kBtn1;
         if (p.substickY < -50) hold |= kBtn2;
         if (p.substickX < -50) hold |= kBtnMinus;
-        if (p.substickX > 50) hold |= kBtnHome;
+        if (p.substickX > 50 && SatbkHomeMenuAllowed()) hold |= kBtnHome;
     }
 
     bool autoSwing = false;
@@ -384,6 +385,9 @@ bool Sample(uint32_t chan, WiiRemoteInput::KpadSample& s, bool& isClassic) {
     isClassic = false;
     if (WiiRemoteInput::ReadKpadSample(chan, s)) {
         isClassic = s.hasClassic;
+        if (!SatbkHomeMenuAllowed()) {
+            s.hold &= ~kBtnHome;
+        }
         if (InputBindings::InputBlocked()) {
             s.hold = 0;
             s.stick[0] = s.stick[1] = 0.0f;

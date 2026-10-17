@@ -135,7 +135,32 @@ bool ShowStrapScreen() {
     }();
     return show;
 }
+bool HomeMenuAllowed() {
+    static const bool allowed = [] {
+        std::ifstream in(RuntimeConfigFile::ResolveConfigPath());
+        std::string line;
+        bool inGame = false;
+        while (std::getline(in, line)) {
+            const size_t first = line.find_first_not_of(" \t");
+            if (first == std::string::npos || line[first] == '#') {
+                continue;
+            }
+            if (line[first] == '[') {
+                inGame = line.compare(first, 6, "[game]") == 0;
+                continue;
+            }
+            if (inGame && line.compare(first, 9, "home_menu") == 0) {
+                return line.find("true") != std::string::npos;
+            }
+        }
+        return false;
+    }();
+    return allowed;
+}
 } // namespace
+
+// The Wii HOME menu is off unless Config.toml [game] home_menu = true (launcher: Controls page).
+extern "C" bool SatbkHomeMenuAllowed() { return HomeMenuAllowed(); }
 
 extern "C" void SatbkStrapUpdate(CpuContext* ctx) {
     if (ShowStrapScreen()) {

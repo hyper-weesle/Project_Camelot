@@ -859,6 +859,14 @@ void DrawControls(App& app) {
             SaveConfig(app);
         }
     }
+    bool homeMenu = app.config.GetBool("game", "home_menu").value_or(false);
+    if (ImGui::Checkbox("Allow the Wii HOME menu", &homeMenu)) {
+        app.config.SetBool("game", "home_menu", homeMenu);
+        SaveConfig(app);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Off: the HOME button does nothing, so the Wii HOME menu can't pop up by accident.");
+    }
     ImGui::Dummy(ImVec2(0, 4));
 
     const auto keyCounts = CountBindings(app, true);
@@ -880,6 +888,9 @@ void DrawControls(App& app) {
         const char* lastGroup = "";
         for (size_t i = 0; i < kActionCount; ++i) {
             const Action& a = kActions[i];
+            if (!homeMenu && std::strcmp(a.keyboardKey, "cstick_right") == 0) {
+                continue; // the HOME row only matters while the HOME menu is allowed
+            }
             if (std::strcmp(a.group, lastGroup) != 0) {
                 lastGroup = a.group;
                 ImGui::TableNextRow();
