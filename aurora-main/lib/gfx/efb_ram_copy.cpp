@@ -1,3 +1,4 @@
+extern "C" void aurora_satbk_count(int site);
 #include "efb_ram_copy.hpp"
 
 #include "efb_ram_encoder.hpp"
@@ -275,7 +276,7 @@ void encode_downloads(const wgpu::CommandEncoder& encoder, void* dest) noexcept 
         .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead,
         .size = bufferSize,
     };
-    auto buffer = g_device.CreateBuffer(&descriptor);
+    aurora_satbk_count(0); auto buffer = g_device.CreateBuffer(&descriptor);
     const wgpu::TexelCopyTextureInfo source{
         .texture = texture->texture,
         .mipLevel = 0,
@@ -406,7 +407,7 @@ void encode_async_downloads(const wgpu::CommandEncoder& encoder) noexcept {
           .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead,
           .size = bufferSize,
       };
-      slot.buffer = g_device.CreateBuffer(&descriptor);
+      aurora_satbk_count(1); slot.buffer = g_device.CreateBuffer(&descriptor);
       slot.bufferSize = bufferSize;
     }
     if (!slot.buffer) {

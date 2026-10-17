@@ -66,11 +66,33 @@ extern "C" bool SatbkGxTraceOn() {
     }();
     (void)parsed;
     const long f = g_copyFrames.load(std::memory_order_relaxed);
+    // SATBK_GXTRACE_T=<seconds>,<count>: start at the first display copy after that many seconds.
+    static long timedFirst = -1, timedCount = 0;
+    static double timedStart = -1;
+    static const bool timedParsed = [] {
+        if (const char* spec = std::getenv("SATBK_GXTRACE_T")) {
+            timedStart = std::atof(spec);
+            const char* comma = std::strchr(spec, ',');
+            timedCount = comma ? std::atol(comma + 1) : 1;
+        }
+        return true;
+    }();
+    (void)timedParsed;
+    if (timedStart >= 0) {
+        static const auto t0 = std::chrono::steady_clock::now();
+        if (timedFirst < 0 && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() >= timedStart) {
+            timedFirst = f;
+        }
+        if (timedFirst >= 0 && f >= timedFirst && f < timedFirst + timedCount) {
+            return true;
+        }
+    }
     return first >= 0 && f >= first && f < first + count;
 }
 
 extern "C" void aurora_texture_stats(uint64_t* count, uint64_t* bytes);
 extern "C" void aurora_texture_cache_stats(uint64_t* out);
+extern "C" void aurora_satbk_counts(uint64_t* out, int n);
 
 extern "C" void SatbkDevTestQuad() {
     if (SatbkGxTraceOn()) {
@@ -88,6 +110,14 @@ extern "C" void SatbkDevTestQuad() {
                      frame, static_cast<unsigned long long>(count), static_cast<unsigned long long>(bytes >> 20),
                      st->queuedPipelines, st->createdPipelines, st->drawCallCount, st->lastVertSize,
                      st->lastUniformSize, st->lastIndexSize, st->lastStorageSize, st->lastTextureUploadSize);
+        uint64_t sites[13] = {};
+        aurora_satbk_counts(sites, 13);
+        std::fprintf(stderr, "[satbk]   gx creates tlut %llu static %llu palette %llu\n", (unsigned long long)sites[10], (unsigned long long)sites[11], (unsigned long long)sites[12]);
+        std::fprintf(stderr, "[satbk]   creates efb %llu/%llu snap %llu rt %llu buf %llu tex %llu/%llu/%llu depth %llu cap %llu\n",
+                     (unsigned long long)sites[0], (unsigned long long)sites[1], (unsigned long long)sites[2],
+                     (unsigned long long)sites[3], (unsigned long long)sites[4], (unsigned long long)sites[5],
+                     (unsigned long long)sites[6], (unsigned long long)sites[7], (unsigned long long)sites[8],
+                     (unsigned long long)sites[9]);
         uint64_t c[5] = {};
         aurora_texture_cache_stats(c);
         std::fprintf(stderr, "[satbk]   texobj %llu source %llu keys %llu rev %llu copies %llu\n", (unsigned long long)c[0],
@@ -116,6 +146,41 @@ extern "C" void SatbkDevTestQuad() {
     GXSetNumTevStages(1);
     GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD_NULL, GX_TEXMAP_NULL, GX_COLOR0A0);
     GXSetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+    static const bool alpha0 = std::getenv("SATBK_TESTALPHA0") != nullptr;
+    static const bool alpha0tex = std::getenv("SATBK_TESTALPHA0TEX") != nullptr;
+    if (alpha0tex) {
+        // A textured quad set up exactly like the game's loading-screen quad.
+        static std::vector<uint8_t> texels(64 * 64 * 4, 0xFF);
+        static GXTexObj obj;
+        GXInitTexObj(&obj, texels.data(), 64, 64, GX_TF_RGBA8, GX_CLAMP, GX_CLAMP, GX_FALSE);
+        GXLoadTexObj(&obj, GX_TEXMAP0);
+        GXSetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+        GXSetVtxAttrFmt(GX_VTXFMT7, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+        GXSetNumTexGens(1);
+        GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, GX_FALSE, GX_PTIDENTITY);
+        GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+        GXSetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO);
+        GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+        GXSetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP);
+        GXSetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
+        GXSetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+        GXSetColorUpdate(GX_TRUE);
+        GXSetCullMode(GX_CULL_NONE);
+        GXBegin(GX_QUADS, GX_VTXFMT7, 4);
+        GXPosition3f32(0.f, 0.f, 0.f);   GXColor4u8(255, 0, 0, 255); GXTexCoord2f32(0, 0);
+        GXPosition3f32(320.f, 0.f, 0.f); GXColor4u8(255, 0, 0, 255); GXTexCoord2f32(1, 0);
+        GXPosition3f32(320.f, 480.f, 0.f); GXColor4u8(255, 0, 0, 255); GXTexCoord2f32(1, 1);
+        GXPosition3f32(0.f, 480.f, 0.f); GXColor4u8(255, 0, 0, 255); GXTexCoord2f32(0, 1);
+        GXEnd();
+        return;
+    }
+    if (alpha0) {
+        // Same TEV/blend setup as the game's loading-screen background quad: alpha must come out 0,
+        // so with SRCALPHA blending this quad has to be invisible.
+        GXSetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_RASC);
+        GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO);
+        GXSetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+    } else
     GXSetBlendMode(GX_BM_NONE, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
     GXSetZMode(GX_FALSE, GX_ALWAYS, GX_FALSE);
     GXSetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);

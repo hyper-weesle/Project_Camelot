@@ -1,3 +1,4 @@
+extern "C" void aurora_satbk_count(int site);
 #include "common.hpp"
 #include "staging_map.hpp"
 #include "../gx/shader_info.hpp"
@@ -332,7 +333,7 @@ static TextureHandle new_resolve_source_snapshot(wgpu::Extent3D size, wgpu::Text
       .mipLevelCount = 1,
       .sampleCount = 1,
   };
-  auto texture = g_device.CreateTexture(&textureDescriptor);
+  aurora_satbk_count(2); auto texture = g_device.CreateTexture(&textureDescriptor);
   constexpr wgpu::TextureViewDescriptor viewDescriptor{
       .label = "GX Copy Source Snapshot view",
       .dimension = wgpu::TextureViewDimension::e2D,
@@ -744,7 +745,7 @@ static OffscreenCacheEntry get_offscreen_textures(uint32_t width, uint32_t heigh
       .mipLevelCount = 1,
       .sampleCount = 1,
   };
-  auto colorTexture = g_device.CreateTexture(&colorDesc);
+  aurora_satbk_count(3); auto colorTexture = g_device.CreateTexture(&colorDesc);
   auto colorView = colorTexture.CreateView();
   webgpu::TextureWithSampler color{
       .texture = std::move(colorTexture),
@@ -884,7 +885,7 @@ void initialize() {
         .usage = usage,
         .size = size,
     };
-    out = g_device.CreateBuffer(&descriptor);
+    aurora_satbk_count(4); out = g_device.CreateBuffer(&descriptor);
   };
   createBuffer(g_uniformBuffer, wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, UniformBufferSize,
                "Shared Uniform Buffer");
@@ -1502,6 +1503,10 @@ void after_submit() noexcept {
   if (g_instance) {
     g_instance.ProcessEvents();
   }
+  // Explicitly tick the device too, so destroyed textures and buffers are reclaimed every frame.
+  if (g_device) {
+    g_device.Tick();
+  }
 }
 
 static void render_pass_impl(const wgpu::RenderPassEncoder& pass, const std::vector<RenderPass>& renderPasses, u32 idx,
@@ -1772,4 +1777,11 @@ const AuroraStats* aurora_get_stats() { return &aurora::gfx::g_stats; }
 extern "C" void aurora_texture_stats(uint64_t* count, uint64_t* bytes) {
   *count = aurora::gfx::TextureRef::s_liveCount.load(std::memory_order_relaxed);
   *bytes = aurora::gfx::TextureRef::s_liveBytes.load(std::memory_order_relaxed);
+}
+
+#include <atomic>
+static std::atomic<uint64_t> s_satbkSiteCounts[32];
+extern "C" void aurora_satbk_count(int site) { s_satbkSiteCounts[site & 31].fetch_add(1, std::memory_order_relaxed); }
+extern "C" void aurora_satbk_counts(uint64_t* out, int n) {
+  for (int i = 0; i < n && i < 32; ++i) out[i] = s_satbkSiteCounts[i].load(std::memory_order_relaxed);
 }

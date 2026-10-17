@@ -394,17 +394,6 @@ patch('src/hle/gx/gx_transform.cpp', [
 _trace_fn('src/hle/gx/gx_transform.cpp', 'extern "C" void GX__SetProjectionv_80173080(', 'Projectionv %08X', 'pa')
 _trace_fn('src/hle/gx/gx_transform.cpp', 'extern "C" void GX__SetCurrentMtx_80173214(', 'CurrentMtx %u', 'id')
 _trace_fn('src/hle/gx/gx_transform.cpp', 'extern "C" void GX__SetScissor_80173430(', 'Scissor %u %u %u %u', 'l, t, w, h')
-# Gate every SATBK_GXTRACE trace on a frame window (SATBK_GXTRACE=<first frame>,<frame count>).
-import re as _re
-for _root, _dirs, _files in os.walk('src/hle/gx'):
-    for _f in _files:
-        _p = os.path.join(_root, _f)
-        _s = open(_p).read()
-        _n = _re.sub(r'static const char\* (\w+) = std::getenv\("SATBK_GXTRACE"\);\s*static long (\w+) = \1 \? std::atol\(\1\)(?: \* \d)? : 0;\s*if \(\2 > 0\) \{\s*--\2;',
-                     'if (SatbkGxTraceOn()) {', _s)
-        if _n != _s:
-            _n = _n.replace('#include <cstdlib>\n', '#include <cstdlib>\nextern "C" bool SatbkGxTraceOn();\n', 1)
-            open(_p, 'w').write(_n)
 # Scheduler self-heal: RunQueueBits must equal the set of non-empty run queues. Some path in this
 # game's SDK leaves a thread queued without its bit (seen: the asset loader threads after the
 # title movie, which then never run). Rebuild the mask from the queues before every decision.
@@ -576,3 +565,85 @@ patch('src/hle/gx/gx_copy.cpp', [
     SatbkDevTestQuad();
     GXInvalidateTexAll();'''),
 ])
+# Dev: SATBK_TEXLOG lists each distinct large texture load and every copy destination.
+patch('src/hle/gx/gx_texture.cpp', [
+    ('''    if (!IsReasonableTextureDimensions(meta.width, meta.height)) {
+        if (s_invalidDimLogCount++ < 128) {''', '''    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint64_t> seen;
+        if (texlog && meta.width >= 256 &&
+            seen.insert((uint64_t(meta.dataAddr) << 24) ^ (uint64_t(meta.format) << 20) ^ meta.width).second) {
+            std::fprintf(stderr, "[texlog] load data=%08X %ux%u fmt=%u obj=%08X\\n", meta.dataAddr, meta.width,
+                         meta.height, meta.format, oa);
+        }
+        static const uint32_t skipTex = std::getenv("SATBK_SKIPTEX") ? std::strtoul(std::getenv("SATBK_SKIPTEX"), nullptr, 16) : 0;
+        if (skipTex != 0 && meta.dataAddr == skipTex) {
+            BindUnloadableTexturePlaceholder(tid);
+            return;
+        }
+        if (SatbkGxTraceOn()) {
+            std::fprintf(stderr, "[gxtrace]   tex data=%08X %ux%u fmt=%u tlut=%08X\\n", meta.dataAddr, meta.width,
+                         meta.height, meta.format, meta.tlut);
+        }
+    }
+    if (!IsReasonableTextureDimensions(meta.width, meta.height)) {
+        if (s_invalidDimLogCount++ < 128) {'''),
+])
+s = open('src/hle/gx/gx_texture.cpp').read().lstrip('\ufeff')
+if '#include <set>' not in s:
+    s = '#include <set>\n#include <cstdlib>\n#include <cstdio>\n' + s
+open('src/hle/gx/gx_texture.cpp', 'w').write(s)
+patch('src/hle/gx/gx_copy.cpp', [
+    ('''extern "C" void GX__CopyTex_8016fd74(uint32_t da, uint32_t c) {
+    EnsureAuroraFrameActive();''', '''extern "C" void GX__CopyTex_8016fd74(uint32_t da, uint32_t c) {
+    EnsureAuroraFrameActive();
+    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint32_t> seen;
+        if (texlog && seen.insert(da).second) {
+            std::fprintf(stderr, "[texlog] CopyTex dest=%08X src=%u,%u %ux%u\\n", da, g_texCopyState.srcLeft,
+                         g_texCopyState.srcTop, g_texCopyState.srcWidth, g_texCopyState.srcHeight);
+        }
+    }'''),
+    ('''    EnsureAuroraFrameActive();
+    SatbkDevTestQuad();''', '''    EnsureAuroraFrameActive();
+    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint32_t> seen;
+        if (texlog && seen.insert(da).second) {
+            std::fprintf(stderr, "[texlog] CopyDisp dest=%08X\\n", da);
+        }
+        if (SatbkGxTraceOn()) {
+            std::fprintf(stderr, "[gxtrace] CopyDisp dest=%08X clear=%u\\n", da, c);
+        }
+    }
+    SatbkDevTestQuad();'''),
+])
+s = open('src/hle/gx/gx_copy.cpp').read().lstrip('\ufeff')
+if '#include <set>' not in s:
+    s = '#include <set>\n#include <cstdlib>\n#include <cstdio>\nextern "C" bool SatbkGxTraceOn();\n' + s
+open('src/hle/gx/gx_copy.cpp', 'w').write(s)
+# GX resources are identified by host pointer. Texture loads use the canonical physical alias,
+# but GXCopyTex destinations arrive as cached virtual addresses (0x8.../0x9...), which on Linux
+# and Windows map to a different host alias -- so Aurora never matched a copy to the texture
+# that samples it and sampled stale RAM instead (garbage on loading screens and transitions).
+patch('src/hle/gx/gx_utils.cpp', [
+    ('''#if defined(__APPLE__)
+    // The macOS flat guest map exposes separate host aliases for cached,''', '''#if 1 // SatBK: canonicalize on every host (see tools/satbk_patches.py)
+    // The macOS flat guest map exposes separate host aliases for cached,'''),
+])
+_trace_fn('src/hle/gx/gx_copy.cpp', 'extern "C" void GX__SetDispCopySrc_8016f438(', 'DispCopySrc %u %u %u %u', 'l, t, w, h')
+_trace_fn('src/hle/gx/gx_copy.cpp', 'extern "C" void GX__SetDispCopyDst_8016f4b8(', 'DispCopyDst %u %u', 'w, h')
+_trace_fn('src/hle/gx/gx_pixel.cpp', 'extern "C" void GX__SetPixelFmt_80172888(', 'PixelFmt %u %u', 'pf, zf')
+
+# Gate every SATBK_GXTRACE trace on a frame window (SATBK_GXTRACE=<first frame>,<frame count>).
+import re as _re
+for _root, _dirs, _files in os.walk('src/hle/gx'):
+    for _f in _files:
+        _p = os.path.join(_root, _f)
+        _s = open(_p).read()
+        _n = _re.sub(r'static const char\* (\w+) = std::getenv\("SATBK_GXTRACE"\);\s*static long (\w+) = \1 \? std::atol\(\1\)(?: \* \d)? : 0;\s*if \(\2 > 0\) \{\s*--\2;',
+                     'if (SatbkGxTraceOn()) {', _s)
+        if _n != _s:
+            _n = _n.replace('#include <cstdlib>\n', '#include <cstdlib>\nextern "C" bool SatbkGxTraceOn();\n', 1)
+            open(_p, 'w').write(_n)

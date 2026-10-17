@@ -48,6 +48,7 @@ PPC_NATIVE_OVERRIDE_VOID(8056D970, GX__SetZCompLoc_80172858, (uint32_t bt), (bt)
 // ============================================================================
 
 extern "C" void GX__SetPixelFmt_80172888(uint32_t pf, uint32_t zf) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] PixelFmt %u %u\n", pf, zf); } }
     GXSetPixelFmt(static_cast<GXPixelFmt>(pf), static_cast<GXZFmt16>(zf));
 }
 PPC_NATIVE_OVERRIDE_VOID(8056D9A0, GX__SetPixelFmt_80172888, (uint32_t pf, uint32_t zf), (pf, zf));

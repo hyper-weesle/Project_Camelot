@@ -98,3 +98,59 @@ extern "C" void SatbkPreemptionPoint() {
     }
     busy = false;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Skip the Wii Remote strap safety screen. 0x8034A0A0 advances the strap screen's state machine
+// (load -> show for ~11 s -> fade -> done = 5); the boot sequence moves on once it reports done.
+// Run it many times per frame so the screen finishes almost immediately. Set
+// [game] show_strap_screen = true in Config.toml to keep it.
+// ---------------------------------------------------------------------------------------------
+#include "runtime_config.h"
+
+#include <fstream>
+#include <string>
+
+extern "C" void func_8034A0A0(CpuContext* ctx);
+
+namespace {
+bool ShowStrapScreen() {
+    static const bool show = [] {
+        std::ifstream in(RuntimeConfigFile::ResolveConfigPath());
+        std::string line;
+        bool inGame = false;
+        while (std::getline(in, line)) {
+            const size_t first = line.find_first_not_of(" \t");
+            if (first == std::string::npos || line[first] == '#') {
+                continue;
+            }
+            if (line[first] == '[') {
+                inGame = line.compare(first, 6, "[game]") == 0;
+                continue;
+            }
+            if (inGame && line.compare(first, 17, "show_strap_screen") == 0) {
+                return line.find("true") != std::string::npos;
+            }
+        }
+        return false;
+    }();
+    return show;
+}
+} // namespace
+
+extern "C" void SatbkStrapUpdate(CpuContext* ctx) {
+    if (ShowStrapScreen()) {
+        func_8034A0A0(ctx);
+        return;
+    }
+    const CpuContext entry = *ctx;
+    const uint32_t strap = entry.gpr[3];
+    for (int i = 0; i < 400; ++i) {
+        *ctx = entry;
+        func_8034A0A0(ctx);
+        const uint32_t state = Memory::Read32(strap + 8);
+        if (state == 0 || state == 5) {
+            break; // still loading its files (next frame), or finished
+        }
+    }
+}
+REGISTER_NATIVE_FUNCTION_AS(0x8034A0A0, SatbkStrapUpdate, "SatbkStrapUpdate");

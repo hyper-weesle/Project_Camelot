@@ -1,3 +1,4 @@
+extern "C" void aurora_satbk_count(int site);
 #include "common.hpp"
 
 #include "../internal.hpp"
@@ -164,7 +165,7 @@ TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t m
       .mipLevelCount = mips,
       .sampleCount = 1,
   };
-  auto texture = g_device.CreateTexture(&textureDescriptor);
+  aurora_satbk_count(5); auto texture = g_device.CreateTexture(&textureDescriptor);
   const auto viewLabel = fmt::format("{} view", label);
   wgpu::TextureViewDescriptor textureViewDescriptor{
       .label = viewLabel.c_str(),
@@ -196,7 +197,7 @@ TextureHandle new_render_texture(uint32_t width, uint32_t height, u32 gxFormat, 
       .mipLevelCount = 1,
       .sampleCount = 1,
   };
-  auto texture = g_device.CreateTexture(&textureDescriptor);
+  aurora_satbk_count(6); auto texture = g_device.CreateTexture(&textureDescriptor);
 
   // Create texture view for color attachments
   const auto viewLabel = fmt::format("{} view", label);
@@ -230,7 +231,7 @@ TextureHandle new_conv_texture(uint32_t width, uint32_t height, u32 gxFormat, co
       .mipLevelCount = 1,
       .sampleCount = 1,
   };
-  auto texture = g_device.CreateTexture(&textureDescriptor);
+  aurora_satbk_count(7); auto texture = g_device.CreateTexture(&textureDescriptor);
 
   // Create texture view for color attachments
   const auto viewLabel = fmt::format("{} view", label);

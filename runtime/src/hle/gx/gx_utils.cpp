@@ -33,7 +33,7 @@ void WriteGuestFloat(uint32_t addr, float value, const char* label) {
 
 void* GuestToHostPtr(uint32_t addr, size_t len) {
     if (addr == 0) return nullptr;
-#if defined(__APPLE__)
+#if 1 // SatBK: canonicalize on every host (see tools/satbk_patches.py)
     // The macOS flat guest map exposes separate host aliases for cached,
     // uncached, and physical MEM1/MEM2 addresses. GX resources are identified
     // by their host pointer, so all aliases of one guest allocation must use

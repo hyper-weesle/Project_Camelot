@@ -1,3 +1,8 @@
+#include <set>
+#include <cstdlib>
+extern "C" bool SatbkGxTraceOn();
+#include <cstdio>
+extern "C" bool SatbkGxTraceOn();
 // gx_copy.cpp - Framebuffer Copy Operations
 #include "gx_internal.h"
 extern "C" void SatbkDevTestQuad();
@@ -72,11 +77,13 @@ void InvalidateEfbCopyDestinationsForRange(uint32_t addr, uint32_t size) {
 // ============================================================================
 
 extern "C" void GX__SetDispCopySrc_8016f438(uint32_t l, uint32_t t, uint32_t w, uint32_t h) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] DispCopySrc %u %u %u %u\n", l, t, w, h); } }
     GXSetDispCopySrc((u16)l, (u16)t, (u16)w, (u16)h);
 }
 PPC_NATIVE_OVERRIDE_VOID(8056A684, GX__SetDispCopySrc_8016f438, (uint32_t l, uint32_t t, uint32_t w, uint32_t h), (l, t, w, h));
 
-extern "C" void GX__SetDispCopyDst_8016f4b8(uint32_t w, uint32_t h) { GXSetDispCopyDst((u16)w, (u16)h); }
+extern "C" void GX__SetDispCopyDst_8016f4b8(uint32_t w, uint32_t h) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] DispCopyDst %u %u\n", w, h); } } GXSetDispCopyDst((u16)w, (u16)h); }
 PPC_NATIVE_OVERRIDE_VOID(8056A704, GX__SetDispCopyDst_8016f4b8, (uint32_t w, uint32_t h), (w, h));
 
 // ============================================================================
@@ -114,6 +121,16 @@ PPC_NATIVE_OVERRIDE_VOID(8056AE70, GX__SetDispCopyGamma_8016fc24, (uint32_t g), 
 
 extern "C" void GX__CopyDisp_8016fc38(uint32_t da, uint32_t c) {
     EnsureAuroraFrameActive();
+    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint32_t> seen;
+        if (texlog && seen.insert(da).second) {
+            std::fprintf(stderr, "[texlog] CopyDisp dest=%08X\n", da);
+        }
+        if (SatbkGxTraceOn()) {
+            std::fprintf(stderr, "[gxtrace] CopyDisp dest=%08X clear=%u\n", da, c);
+        }
+    }
     SatbkDevTestQuad();
     GXInvalidateTexAll();
     // GX copies are FIFO-ordered on hardware. Drain submitted draws before
@@ -139,6 +156,14 @@ PPC_NATIVE_OVERRIDE_VOID(8056AE84, GX__CopyDisp_8016fc38, (uint32_t da, uint32_t
 
 extern "C" void GX__CopyTex_8016fd74(uint32_t da, uint32_t c) {
     EnsureAuroraFrameActive();
+    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint32_t> seen;
+        if (texlog && seen.insert(da).second) {
+            std::fprintf(stderr, "[texlog] CopyTex dest=%08X src=%u,%u %ux%u\n", da, g_texCopyState.srcLeft,
+                         g_texCopyState.srcTop, g_texCopyState.srcWidth, g_texCopyState.srcHeight);
+        }
+    }
     // Match GX FIFO ordering: texture copies observe all prior draws.
     GXDrawDone();
     const uint16_t rawSrcLeft = g_texCopyState.srcLeft;

@@ -1,3 +1,4 @@
+extern "C" void aurora_satbk_count(int site);
 #include <aurora/aurora.h>
 
 #ifdef AURORA_ENABLE_GX
@@ -536,7 +537,7 @@ std::optional<PendingFrameCapture> encode_frame_capture(const wgpu::CommandEncod
       .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead,
       .size = bufferSize,
   };
-  auto buffer = g_device.CreateBuffer(&descriptor);
+  aurora_satbk_count(9); auto buffer = g_device.CreateBuffer(&descriptor);
   const wgpu::TexelCopyTextureInfo sourceInfo{
       .texture = source.texture,
       .mipLevel = 0,

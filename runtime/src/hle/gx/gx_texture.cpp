@@ -1,10 +1,13 @@
-﻿// gx_texture.cpp - Texture Object and TLUT Functions
+#include <set>
+#include <cstdlib>
+extern "C" bool SatbkGxTraceOn();
+#include <cstdio>
+// gx_texture.cpp - Texture Object and TLUT Functions
 #include "gx_internal.h"
 #include "runtime_log.h"
 
 #include <algorithm>
 #include <cstdlib>
-extern "C" bool SatbkGxTraceOn();
 
 // Helper to write GXTexObj structure to guest memory in SDK format
 // This is needed because other code may read the structure directly
@@ -485,6 +488,24 @@ extern "C" void GX__LoadTexObj_80170f2c(uint32_t oa, uint32_t tid) {
         }
         BindUnloadableTexturePlaceholder(tid);
         return;
+    }
+    {
+        static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;
+        static std::set<uint64_t> seen;
+        if (texlog && meta.width >= 256 &&
+            seen.insert((uint64_t(meta.dataAddr) << 24) ^ (uint64_t(meta.format) << 20) ^ meta.width).second) {
+            std::fprintf(stderr, "[texlog] load data=%08X %ux%u fmt=%u obj=%08X\n", meta.dataAddr, meta.width,
+                         meta.height, meta.format, oa);
+        }
+        static const uint32_t skipTex = std::getenv("SATBK_SKIPTEX") ? std::strtoul(std::getenv("SATBK_SKIPTEX"), nullptr, 16) : 0;
+        if (skipTex != 0 && meta.dataAddr == skipTex) {
+            BindUnloadableTexturePlaceholder(tid);
+            return;
+        }
+        if (SatbkGxTraceOn()) {
+            std::fprintf(stderr, "[gxtrace]   tex data=%08X %ux%u fmt=%u tlut=%08X\n", meta.dataAddr, meta.width,
+                         meta.height, meta.format, meta.tlut);
+        }
     }
     if (!IsReasonableTextureDimensions(meta.width, meta.height)) {
         if (s_invalidDimLogCount++ < 128) {

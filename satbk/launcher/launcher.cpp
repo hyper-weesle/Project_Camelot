@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -337,6 +338,123 @@ std::string PadButtonLabel(const std::string& name, PadStyle style) {
         }
     }
     return name;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Controller button icons (drawn, so they scale with the UI)
+// ---------------------------------------------------------------------------------------------
+
+ImU32 Rgb(int r, int g, int b, int a = 255) { return IM_COL32(r, g, b, a); }
+
+void CenteredText(ImDrawList* dl, ImFont* font, float size, ImVec2 c, ImU32 col, const char* text) {
+    const ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0.f, text);
+    dl->AddText(font, size, ImVec2(c.x - ts.x * 0.5f, c.y - ts.y * 0.5f), col, text);
+}
+
+// Draws the icon for a [controller] button name centred at c; returns its width.
+float DrawPadGlyph(ImDrawList* dl, ImFont* font, ImVec2 c, float r, const std::string& name, PadStyle style,
+                   bool held) {
+    const std::string base = name.substr(0, name.find_first_of("@,"));
+    const ImU32 body = held ? Rgb(70, 90, 130) : Rgb(40, 46, 60);
+    const ImU32 dpadBody = held ? Rgb(110, 130, 170) : Rgb(150, 158, 175);
+    const ImU32 rim = Rgb(120, 130, 150);
+    const float fs = r * 1.15f;
+    const bool face = base == "south" || base == "east" || base == "west" || base == "north";
+    if (face) {
+        dl->AddCircleFilled(c, r, body, 32);
+        dl->AddCircle(c, r, rim, 32, 1.2f);
+        if (style == PadStyle::PlayStation) {
+            const float s = r * 0.48f;
+            if (base == "south") { // cross
+                const ImU32 col = Rgb(124, 178, 232);
+                dl->AddLine(ImVec2(c.x - s, c.y - s), ImVec2(c.x + s, c.y + s), col, r * 0.2f);
+                dl->AddLine(ImVec2(c.x - s, c.y + s), ImVec2(c.x + s, c.y - s), col, r * 0.2f);
+            } else if (base == "east") { // circle
+                dl->AddCircle(c, s * 1.05f, Rgb(255, 102, 102), 24, r * 0.18f);
+            } else if (base == "west") { // square
+                dl->AddRect(ImVec2(c.x - s * 0.9f, c.y - s * 0.9f), ImVec2(c.x + s * 0.9f, c.y + s * 0.9f),
+                            Rgb(255, 105, 248), 0.f, 0, r * 0.18f);
+            } else { // triangle
+                const ImU32 col = Rgb(64, 226, 160);
+                dl->AddTriangle(ImVec2(c.x, c.y - s * 1.05f), ImVec2(c.x - s * 1.05f, c.y + s * 0.7f),
+                                ImVec2(c.x + s * 1.05f, c.y + s * 0.7f), col, r * 0.18f);
+            }
+        } else {
+            const char* letter = nullptr;
+            ImU32 col = Rgb(230, 230, 230);
+            if (style == PadStyle::Nintendo) {
+                letter = base == "south" ? "B" : base == "east" ? "A" : base == "west" ? "Y" : "X";
+            } else {
+                if (base == "south") { letter = "A"; col = Rgb(110, 200, 90); }
+                if (base == "east") { letter = "B"; col = Rgb(240, 80, 80); }
+                if (base == "west") { letter = "X"; col = Rgb(80, 150, 240); }
+                if (base == "north") { letter = "Y"; col = Rgb(245, 200, 60); }
+            }
+            CenteredText(dl, font, fs, c, col, letter);
+        }
+        return r * 2.f;
+    }
+    if (base == "left_shoulder" || base == "right_shoulder" || base == "left_trigger" || base == "right_trigger") {
+        const bool left = base[0] == 'l';
+        const bool trigger = base.find("trigger") != std::string::npos;
+        const char* label = style == PadStyle::PlayStation ? (trigger ? (left ? "L2" : "R2") : (left ? "L1" : "R1"))
+                            : style == PadStyle::Nintendo ? (trigger ? (left ? "ZL" : "ZR") : (left ? "L" : "R"))
+                                                          : (trigger ? (left ? "LT" : "RT") : (left ? "LB" : "RB"));
+        const float w = r * 1.9f, h = trigger ? r * 1.7f : r * 1.25f;
+        const ImVec2 a(c.x - w * 0.5f, c.y - h * 0.5f), b(c.x + w * 0.5f, c.y + h * 0.5f);
+        dl->AddRectFilled(a, b, body, trigger ? r * 0.7f : r * 0.35f,
+                          trigger ? ImDrawFlags_RoundCornersTop : ImDrawFlags_RoundCornersAll);
+        dl->AddRect(a, b, rim, trigger ? r * 0.7f : r * 0.35f,
+                    trigger ? ImDrawFlags_RoundCornersTop : ImDrawFlags_RoundCornersAll, 1.2f);
+        CenteredText(dl, font, fs * 0.8f, c, Rgb(235, 235, 240), label);
+        return w;
+    }
+    if (base.rfind("dpad_", 0) == 0) {
+        const float t = r * 0.42f, l = r * 0.95f;
+        dl->AddRectFilled(ImVec2(c.x - t, c.y - l), ImVec2(c.x + t, c.y + l), dpadBody, 2.f);
+        dl->AddRectFilled(ImVec2(c.x - l, c.y - t), ImVec2(c.x + l, c.y + t), dpadBody, 2.f);
+        const ImU32 hi = Rgb(232, 184, 58);
+        if (base == "dpad_up") dl->AddRectFilled(ImVec2(c.x - t, c.y - l), ImVec2(c.x + t, c.y - t), hi, 2.f);
+        if (base == "dpad_down") dl->AddRectFilled(ImVec2(c.x - t, c.y + t), ImVec2(c.x + t, c.y + l), hi, 2.f);
+        if (base == "dpad_left") dl->AddRectFilled(ImVec2(c.x - l, c.y - t), ImVec2(c.x - t, c.y + t), hi, 2.f);
+        if (base == "dpad_right") dl->AddRectFilled(ImVec2(c.x + t, c.y - t), ImVec2(c.x + l, c.y + t), hi, 2.f);
+        return l * 2.f;
+    }
+    if (base == "left_stick" || base == "right_stick") {
+        dl->AddCircleFilled(c, r, body, 32);
+        dl->AddCircle(c, r * 0.62f, rim, 32, 1.5f);
+        CenteredText(dl, font, fs * 0.75f, c, Rgb(235, 235, 240),
+                     style == PadStyle::PlayStation ? (base[0] == 'l' ? "L3" : "R3") : (base[0] == 'l' ? "LS" : "RS"));
+        return r * 2.f;
+    }
+    // Menu-style buttons and anything else: a pill with a short label.
+    std::string label = PadButtonLabel(name, style);
+    if (base == "start") label = style == PadStyle::PlayStation ? "OPTIONS" : style == PadStyle::Nintendo ? "+" : "MENU";
+    if (base == "back") label = style == PadStyle::PlayStation ? "CREATE" : style == PadStyle::Nintendo ? "-" : "VIEW";
+    if (base == "guide") label = style == PadStyle::PlayStation ? "PS" : "HOME";
+    const ImVec2 ts = font->CalcTextSizeA(fs * 0.7f, FLT_MAX, 0.f, label.c_str());
+    const float w = std::max(r * 2.f, ts.x + r * 0.9f), h = r * 1.3f;
+    const ImVec2 a(c.x - w * 0.5f, c.y - h * 0.5f), b(c.x + w * 0.5f, c.y + h * 0.5f);
+    dl->AddRectFilled(a, b, body, h * 0.5f);
+    dl->AddRect(a, b, rim, h * 0.5f, 0, 1.2f);
+    CenteredText(dl, font, fs * 0.7f, c, Rgb(235, 235, 240), label.c_str());
+    return w;
+}
+
+// The analog stick a fixed row is tied to, with the direction marked.
+void DrawStickGlyph(ImDrawList* dl, ImFont* font, ImVec2 c, float r, bool right, const char* dir, bool held,
+                    PadStyle style) {
+    dl->AddCircleFilled(c, r, held ? Rgb(70, 90, 130) : Rgb(40, 46, 60), 32);
+    dl->AddCircle(c, r, Rgb(120, 130, 150), 32, 1.2f);
+    ImVec2 o(0, 0);
+    if (!std::strcmp(dir, "up")) o.y = -r * 0.42f;
+    if (!std::strcmp(dir, "down")) o.y = r * 0.42f;
+    if (!std::strcmp(dir, "left")) o.x = -r * 0.42f;
+    if (!std::strcmp(dir, "right")) o.x = r * 0.42f;
+    dl->AddCircleFilled(ImVec2(c.x + o.x, c.y + o.y), r * 0.45f, Rgb(232, 184, 58), 24);
+    (void)font;
+    (void)style;
+    (void)right;
 }
 
 // A game input. `keyboardKey` names the [keyboard] entry; `padKey` the [controller] slot,
@@ -718,13 +836,28 @@ void DrawControls(App& app) {
     ImGui::TextColored(kMutedV, "Click a binding, then press the key or controller button to use. "
                                 "Esc cancels, Backspace clears.");
     SDL_Gamepad* pad = FirstPad(app);
-    const PadStyle style = StyleFor(pad);
+    const std::string iconSetting = app.config.GetString("launcher", "button_icons").value_or("auto");
+    PadStyle style = StyleFor(pad);
+    if (iconSetting == "xbox") style = PadStyle::Xbox;
+    if (iconSetting == "playstation") style = PadStyle::PlayStation;
     if (pad) {
         ImGui::TextColored(kGoodV, "Controller connected:");
         ImGui::SameLine();
         ImGui::TextUnformatted(SDL_GetGamepadName(pad) ? SDL_GetGamepadName(pad) : "Gamepad");
     } else {
         ImGui::TextColored(kGoldV, "No controller detected - connect one to bind and test it (keyboard works too).");
+    }
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextColored(kMutedV, "Button icons:");
+    ImGui::SameLine();
+    static const char* iconKeys[] = {"auto", "xbox", "playstation"};
+    static const char* iconLabels[] = {"Auto", "Xbox", "PlayStation"};
+    for (int k = 0; k < 3; ++k) {
+        if (k) ImGui::SameLine();
+        if (ImGui::RadioButton(iconLabels[k], iconSetting == iconKeys[k])) {
+            app.config.SetString("launcher", "button_icons", iconKeys[k]);
+            SaveConfig(app);
+        }
     }
     ImGui::Dummy(ImVec2(0, 4));
 
@@ -733,15 +866,15 @@ void DrawControls(App& app) {
 
     const float footer = ImGui::GetFrameHeightWithSpacing() + 30.f;
     ImGui::BeginChild("controls", ImVec2(0, -footer), ImGuiChildFlags_None);
-    if (ImGui::BeginTable("bindings", 4,
+    const float rowH = ImGui::GetFrameHeight() * 1.25f;
+    if (ImGui::BeginTable("bindings", 3,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_PadOuterX |
                               ImGuiTableFlags_ScrollY,
                           ImVec2(0, 0))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 1.1f);
-        ImGui::TableSetupColumn("On the Wii", ImGuiTableColumnFlags_WidthStretch, 1.2f);
+        ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthStretch, 1.3f);
         ImGui::TableSetupColumn("Keyboard", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-        ImGui::TableSetupColumn("Controller", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+        ImGui::TableSetupColumn("Controller", ImGuiTableColumnFlags_WidthStretch, 1.2f);
         ImGui::TableHeadersRow();
 
         const char* lastGroup = "";
@@ -756,7 +889,7 @@ void DrawControls(App& app) {
                 ImGui::TextColored(kGoldV, "%s", a.group);
                 ImGui::PopFont();
             }
-            ImGui::TableNextRow();
+            ImGui::TableNextRow(ImGuiTableRowFlags_None, rowH);
             ImGui::PushID(static_cast<int>(i));
 
             const std::string keyValue = KeyboardValue(app, a);
@@ -765,18 +898,16 @@ void DrawControls(App& app) {
             const bool padHeld = a.padKey ? PadNameHeld(app, padValue) : PadFixedHeld(app, i);
 
             ImGui::TableSetColumnIndex(0);
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (rowH - ImGui::GetFrameHeight()) * 0.5f);
             ImGui::AlignTextToFramePadding();
-            if (keyHeld || padHeld) {
-                ImGui::TextColored(kGoldV, "%s", a.label);
-            } else {
-                ImGui::TextUnformatted(a.label);
+            ImGui::TextColored(keyHeld || padHeld ? kGoldV : ImVec4(0.93f, 0.94f, 0.97f, 1.f), "%s", a.label);
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Wii: %s", a.wiiInput);
             }
-            ImGui::TableSetColumnIndex(1);
-            ImGui::AlignTextToFramePadding();
-            ImGui::TextColored(kMutedV, "%s", a.wiiInput);
 
-            ImGui::TableSetColumnIndex(2);
+            ImGui::TableSetColumnIndex(1);
             {
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (rowH - ImGui::GetFrameHeight()) * 0.5f);
                 const bool unbound = keyValue.empty() || keyValue == "none";
                 const bool dup = !unbound && keyCounts.count(keyValue) && keyCounts.at(keyValue) > 1;
                 if (keyHeld) {
@@ -800,32 +931,51 @@ void DrawControls(App& app) {
                 }
             }
 
-            ImGui::TableSetColumnIndex(3);
-            if (a.padKey) {
-                const bool unbound = padValue.empty() || padValue == "disabled";
-                const bool dup = !unbound && padCounts.count(padValue) && padCounts.at(padValue) > 1;
-                if (padHeld) {
-                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.43f, 0.86f, 1.f));
-                }
-                if (dup) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, kBadV);
-                }
-                const std::string text = PadButtonLabel(padValue, style) + "##pad";
-                if (ImGui::Button(text.c_str(), ImVec2(-1, 0))) {
-                    BeginCapture(app, i, false);
-                }
-                if (dup) {
-                    ImGui::PopStyleColor();
-                    if (ImGui::IsItemHovered()) {
+            ImGui::TableSetColumnIndex(2);
+            {
+                ImDrawList* dl = ImGui::GetWindowDrawList();
+                const float r = ImGui::GetFrameHeight() * 0.48f;
+                const ImVec2 pos = ImGui::GetCursorScreenPos();
+                const float cellW = ImGui::GetContentRegionAvail().x;
+                const ImVec2 size(cellW, rowH - 4.f);
+                if (a.padKey) {
+                    const bool unbound = padValue.empty() || padValue == "disabled";
+                    const bool dup = !unbound && padCounts.count(padValue) && padCounts.at(padValue) > 1;
+                    if (padHeld) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.43f, 0.86f, 1.f));
+                    }
+                    if (ImGui::Button("##pad", size)) {
+                        BeginCapture(app, i, false);
+                    }
+                    if (padHeld) {
+                        ImGui::PopStyleColor();
+                    }
+                    const ImVec2 c(pos.x + 14.f + r * 1.0f, pos.y + size.y * 0.5f);
+                    float w = 0.f;
+                    if (!unbound) {
+                        // Centre the icon in the cell; wide icons (pills) grow both ways.
+                        const ImVec2 mid(pos.x + size.x * 0.5f, c.y);
+                        w = DrawPadGlyph(dl, app.bodyFont, mid, r, padValue, style, padHeld);
+                        w = 0.f;
+                    }
+                    const std::string label = unbound ? std::string("Not bound") : std::string();
+                    const ImVec2 ts = ImGui::CalcTextSize(label.c_str());
+                    dl->AddText(ImVec2(pos.x + 14.f + std::max(w, r * 2.f) + 10.f, pos.y + (size.y - ts.y) * 0.5f),
+                                dup ? ImGui::GetColorU32(kBadV) : Rgb(225, 228, 236), label.c_str());
+                    if (dup && ImGui::IsItemHovered()) {
                         ImGui::SetTooltip("This button is used by more than one action.");
                     }
+                } else {
+                    ImGui::Dummy(size);
+                    const bool right = std::strncmp(a.keyboardKey, "cstick", 6) == 0;
+                    const char* dir = std::strchr(a.keyboardKey, '_') + 1;
+                    const ImVec2 c(pos.x + 14.f + r, pos.y + size.y * 0.5f);
+                    DrawStickGlyph(dl, app.bodyFont, c, r, right, dir, padHeld, style);
+                    const std::string label = std::string(right ? "Right stick " : "Left stick ") + dir;
+                    const ImVec2 ts = ImGui::CalcTextSize(label.c_str());
+                    dl->AddText(ImVec2(pos.x + 14.f + r * 2.f + 10.f, pos.y + (size.y - ts.y) * 0.5f),
+                                ImGui::GetColorU32(padHeld ? kGoldV : kMutedV), label.c_str());
                 }
-                if (padHeld) {
-                    ImGui::PopStyleColor();
-                }
-            } else {
-                ImGui::AlignTextToFramePadding();
-                ImGui::TextColored(padHeld ? kGoldV : kMutedV, "%s (fixed)", a.padFixed);
             }
             ImGui::PopID();
         }
@@ -849,7 +999,6 @@ void DrawControls(App& app) {
             ImGui::PushFont(app.titleFont);
             ImGui::TextUnformatted(a.label);
             ImGui::PopFont();
-            ImGui::TextColored(kMutedV, "%s", a.wiiInput);
             ImGui::Dummy(ImVec2(0, 6));
             ImGui::TextUnformatted(app.capture.keyboard ? "Press a key..." : "Press a controller button or trigger...");
             const uint64_t elapsed = SDL_GetTicks() - app.capture.startTicks;

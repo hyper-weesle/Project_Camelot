@@ -1,3 +1,4 @@
+extern "C" void aurora_satbk_count(int site);
 #include "depth_peek.hpp"
 
 #include "../dolphin/vi/vi_internal.hpp"
@@ -250,7 +251,7 @@ bool ensure_slot(Slot& slot, uint32_t width, uint32_t height) {
       .usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc,
       .size = byteSize,
   };
-  slot.storageBuffer = g_device.CreateBuffer(&storageDescriptor);
+  aurora_satbk_count(8); slot.storageBuffer = g_device.CreateBuffer(&storageDescriptor);
 
   const wgpu::BufferDescriptor readbackDescriptor{
       .label = "Depth Peek Readback Buffer",

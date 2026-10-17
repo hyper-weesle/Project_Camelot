@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <cstdio>
+extern "C" void aurora_satbk_count(int site);
 #include "gx.hpp"
 
 #include "pipeline.hpp"
@@ -536,7 +539,7 @@ gfx::TextureHandle get_tlut_texture(const GXTlutObj_& tlut) {
   }
 
   const auto handle =
-      gfx::new_static_texture_2d(tlut.numEntries, 1, 1, gfx::tlut_texture_format(tlut.format),
+      (aurora_satbk_count(10), gfx::new_static_texture_2d)(tlut.numEntries, 1, 1, gfx::tlut_texture_format(tlut.format),
                                  {static_cast<const u8*>(tlut.data), tlutSize}, true, "Loaded TLUT");
   if (tlut.tlutObjId != 0) {
     auto& cache = s_tlutObjectCaches[tlut.tlutObjId];
@@ -565,12 +568,16 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
     }
   }
 
-  const bool canUseSourceCache = canCacheUpload && obj.data != nullptr;
+  // The content-keyed source cache revalidates the guest bytes on every hit, so it stays usable for
+  // a texture object that was re-initialized or destroyed before its draw resolved (no_cache): font
+  // and UI code re-inits one GXTexObj per glyph, and skipping the cache there uploaded a fresh GPU
+  // texture for every glyph drawn, every frame.
+  const bool canUseSourceCache = can_cache_static_texture_upload(obj) && obj.data != nullptr;
   const StaticTextureKey sourceKey = canUseSourceCache ? make_static_texture_key(obj) : StaticTextureKey{};
   const size_t sourceHash = canUseSourceCache ? absl::Hash<StaticTextureKey>{}(sourceKey) : 0;
   if (canUseSourceCache) {
     if (auto handle = lookup_static_source_front_cache(sourceKey, sourceHash)) {
-      if (obj.texObjId != 0) {
+      if (canCacheUpload && obj.texObjId != 0) {
         record_tex_obj_source_key(obj.texObjId, sourceKey);
       }
       return handle;
@@ -581,7 +588,7 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
         clear_static_source_front_cache();
       } else {
         const auto& handle = it->second.handle;
-        if (obj.texObjId != 0) {
+        if (canCacheUpload && obj.texObjId != 0) {
           record_tex_obj_source_key(obj.texObjId, sourceKey);
         }
         store_static_source_front_cache(sourceKey, sourceHash, handle);
@@ -603,21 +610,21 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
     const u32 dataSize = GXGetTexBufferSize(static_cast<u16>(obj.width()), static_cast<u16>(obj.height()),
                                             obj.format(), obj.has_mips(),
                                             obj.has_mips() ? static_cast<u8>(obj.mip_count() - 1) : 0);
-    handle = gfx::new_static_texture_2d(obj.width(), obj.height(), obj.mip_count(), obj.format(),
+    handle = (aurora_satbk_count(11), gfx::new_static_texture_2d)(obj.width(), obj.height(), obj.mip_count(), obj.format(),
                                         {static_cast<const uint8_t*>(obj.data), dataSize}, false, nameStr);
   }
   if (canCacheUpload) {
     store_cached_texture(obj, handle);
-    if (canUseSourceCache) {
-      if (s_staticTextureSourceCache.size() >= 256) {
-        absl::erase_if(s_staticTextureSourceCache, [](const auto& item) { return item.second.handle.use_count() <= 1; });
-        clear_static_source_front_cache();
-      }
-      s_staticTextureSourceCache[sourceKey] = make_static_texture_source_entry(sourceKey, handle);
-      store_static_source_front_cache(sourceKey, sourceHash, handle);
-      if (obj.texObjId != 0) {
-        record_tex_obj_source_key(obj.texObjId, sourceKey);
-      }
+  }
+  if (canUseSourceCache) {
+    if (s_staticTextureSourceCache.size() >= 256) {
+      absl::erase_if(s_staticTextureSourceCache, [](const auto& item) { return item.second.handle.use_count() <= 1; });
+      clear_static_source_front_cache();
+    }
+    s_staticTextureSourceCache[sourceKey] = make_static_texture_source_entry(sourceKey, handle);
+    store_static_source_front_cache(sourceKey, sourceHash, handle);
+    if (canCacheUpload && obj.texObjId != 0) {
+      record_tex_obj_source_key(obj.texObjId, sourceKey);
     }
   }
   return handle;
@@ -637,7 +644,10 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
     }
   }
 
-  const bool canUseSourceCache = !obj.no_cache() && !tlut.no_cache() && obj.data != nullptr && tlut.data != nullptr;
+  // Content-keyed and revalidated on every hit, so usable even when the object was re-initialized
+  // before its draw resolved (see resolve_static_texture).
+  const bool canCacheObject = !obj.no_cache() && !tlut.no_cache();
+  const bool canUseSourceCache = obj.data != nullptr && tlut.data != nullptr;
   const StaticPaletteTextureKey sourceKey =
       canUseSourceCache ? make_static_palette_texture_key(obj, tlut) : StaticPaletteTextureKey{};
   if (canUseSourceCache) {
@@ -647,7 +657,7 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
         s_staticPaletteTextureSourceCache.erase(it);
       } else {
         const auto& handle = it->second.handle;
-        if (obj.texObjId != 0) {
+        if (canCacheObject && obj.texObjId != 0) {
           store_cached_texture(obj, handle, tlut.tlutObjId, tlut.tlutDataVersion);
           record_tex_obj_palette_source_key(obj.texObjId, sourceKey);
         }
@@ -656,6 +666,17 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
     }
   }
 
+  {
+    static long dbg = std::getenv("SATBK_PALDEBUG") ? std::atol(std::getenv("SATBK_PALDEBUG")) : 0;
+    static long seen = 0;
+    if (dbg > 0 && ++seen > dbg && seen < dbg + 80) {
+      const bool found = canUseSourceCache && s_staticPaletteTextureSourceCache.contains(sourceKey);
+      std::fprintf(stderr, "[paldbg] id=%u data=%p %ux%u f=%u tv=%u tlut=%p fmt=%u n=%u lv=%u nc=%d/%d src=%d found=%d\n",
+                   obj.texObjId, obj.data, obj.width(), obj.height(), (unsigned)obj.format(), obj.texDataVersion,
+                   tlut.data, (unsigned)tlut.format, tlut.numEntries, tlut.tlutDataVersion, obj.no_cache(),
+                   tlut.no_cache(), canUseSourceCache, found);
+    }
+  }
   gfx::TextureHandle handle;
   if (const auto replacement = gfx::texture_replacement::find_replacement(obj); replacement.has_value()) {
     handle = *replacement;
@@ -670,20 +691,20 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
       return {};
     }
     handle =
-        gfx::new_static_texture_2d(obj.width(), obj.height(), obj.mip_count(), GX_TF_RGBA8_PC,
+        (aurora_satbk_count(12), gfx::new_static_texture_2d)(obj.width(), obj.height(), obj.mip_count(), GX_TF_RGBA8_PC,
                                    {converted.data.data(), converted.data.size()}, false, "GX Static Palette Texture");
     handle->hasArbitraryMips = converted.hasArbitraryMips;
   }
-  if (!obj.no_cache() && !tlut.no_cache()) {
+  if (canCacheObject) {
     store_cached_texture(obj, handle, tlut.tlutObjId, tlut.tlutDataVersion);
-    if (canUseSourceCache) {
-      if (s_staticPaletteTextureSourceCache.size() >= 256) {
-        absl::erase_if(s_staticPaletteTextureSourceCache, [](const auto& item) { return item.second.handle.use_count() <= 1; });
-      }
-      s_staticPaletteTextureSourceCache[sourceKey] = make_static_palette_texture_source_entry(sourceKey, handle);
-      if (obj.texObjId != 0) {
-        record_tex_obj_palette_source_key(obj.texObjId, sourceKey);
-      }
+  }
+  if (canUseSourceCache) {
+    if (s_staticPaletteTextureSourceCache.size() >= 256) {
+      absl::erase_if(s_staticPaletteTextureSourceCache, [](const auto& item) { return item.second.handle.use_count() <= 1; });
+    }
+    s_staticPaletteTextureSourceCache[sourceKey] = make_static_palette_texture_source_entry(sourceKey, handle);
+    if (canCacheObject && obj.texObjId != 0) {
+      record_tex_obj_palette_source_key(obj.texObjId, sourceKey);
     }
   }
   return handle;
@@ -992,14 +1013,15 @@ void evict_texture_object(u32 texObjId) noexcept {
     clear_texture_dependency(texObjId, it->second.tlutObjId);
     s_textureObjectCaches.erase(it);
   }
+  // The content-keyed source caches are shared by every object that points at the same bytes and
+  // revalidate those bytes on use, so destroying one object must not drop them: UI and font code
+  // re-inits one GXTexObj per glyph, and erasing the shared font page here re-uploaded a 2 MB
+  // texture for every glyph drawn.
   if (const auto it = s_texObjSourceKeys.find(texObjId); it != s_texObjSourceKeys.end()) {
-    s_staticTextureSourceCache.erase(it->second);
     s_texObjSourceKeys.erase(it);
     s_texObjSourceKeyMemo.forget(texObjId);
-    clear_static_source_front_cache();
   }
   if (const auto it = s_texObjPaletteSourceKeys.find(texObjId); it != s_texObjPaletteSourceKeys.end()) {
-    s_staticPaletteTextureSourceCache.erase(it->second);
     s_texObjPaletteSourceKeys.erase(it);
     s_texObjPaletteSourceKeyMemo.forget(texObjId);
   }
@@ -1018,7 +1040,7 @@ void evict_tlut_object(u32 tlutObjId) noexcept {
     for (const u32 texObjId : it->second.staticTextureUsers) {
       s_textureObjectCaches.erase(texObjId);
       if (const auto keyIt = s_texObjPaletteSourceKeys.find(texObjId); keyIt != s_texObjPaletteSourceKeys.end()) {
-        s_staticPaletteTextureSourceCache.erase(keyIt->second);
+        // Keep the shared, content-validated conversion (see evict_texture_object).
         s_texObjPaletteSourceKeys.erase(keyIt);
         s_texObjPaletteSourceKeyMemo.forget(texObjId);
       }
