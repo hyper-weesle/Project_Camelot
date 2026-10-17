@@ -45,6 +45,9 @@
 #include <cstring>
 #include <string>
 
+extern "C" bool SatbkTitlePromptArmed();
+extern "C" bool SatbkHomeMenuAllowed();
+extern "C" void SatbkTitlePromptDisarm();
 namespace {
 
 // KPADStatus in this SDK revision is 0xB0 bytes (the game memsets that much).
@@ -343,12 +346,24 @@ bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
         if (p.substickY > 50) hold |= kBtn1;
         if (p.substickY < -50) hold |= kBtn2;
         if (p.substickX < -50) hold |= kBtnMinus;
-        if (p.substickX > 50) hold |= kBtnHome;
+        if (p.substickX > 50 && SatbkHomeMenuAllowed()) hold |= kBtnHome;
     }
 
     bool autoSwing = false;
     if (chan == 0) {
         hold |= AutoPressButtons(autoSwing);
+        // Title screen: Start stands in for the A+B the game asks for.
+        static bool titleStartHeld = false;
+        if ((hold & (kBtnA | kBtnB)) == (kBtnA | kBtnB) && !titleStartHeld) {
+            SatbkTitlePromptDisarm();
+        }
+        if ((hold & kBtnPlus) && (titleStartHeld || SatbkTitlePromptArmed())) {
+            titleStartHeld = true;
+            hold = (hold & ~kBtnPlus) | kBtnA | kBtnB;
+        } else if (titleStartHeld) {
+            titleStartHeld = false;
+            SatbkTitlePromptDisarm();
+        }
     }
     if (StepGesture(st.swing, !blocked && ((b & PAD_BUTTON_X) || autoSwing), 8)) {
         st.swingSide = -st.swingSide; // alternate forehand / backhand like a real combo
@@ -370,6 +385,9 @@ bool Sample(uint32_t chan, WiiRemoteInput::KpadSample& s, bool& isClassic) {
     isClassic = false;
     if (WiiRemoteInput::ReadKpadSample(chan, s)) {
         isClassic = s.hasClassic;
+        if (!SatbkHomeMenuAllowed()) {
+            s.hold &= ~kBtnHome;
+        }
         if (InputBindings::InputBlocked()) {
             s.hold = 0;
             s.stick[0] = s.stick[1] = 0.0f;

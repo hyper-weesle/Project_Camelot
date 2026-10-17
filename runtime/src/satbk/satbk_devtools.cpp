@@ -5,6 +5,7 @@
 #include "system_bridge.h"
 
 #include <atomic>
+#include <unistd.h>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -95,6 +96,23 @@ extern "C" void aurora_texture_cache_stats(uint64_t* out);
 extern "C" void aurora_satbk_counts(uint64_t* out, int n);
 
 extern "C" void SatbkDevTestQuad() {
+    if (const char* spec = std::getenv("SATBK_MEMDUMP")) { // <seconds>,<hex addr>,<hex len>
+        static const auto t0 = std::chrono::steady_clock::now();
+        static bool dumped = false;
+        const double at = std::atof(spec);
+        if (!dumped && std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() >= at) {
+            dumped = true;
+            const char* a = std::strchr(spec, ','); const char* l = a ? std::strchr(a + 1, ',') : nullptr;
+            if (a && l) {
+                const uint32_t addr = std::strtoul(a + 1, nullptr, 16), len = std::strtoul(l + 1, nullptr, 16);
+                if (FILE* f = std::fopen("/tmp/claude-0/memdump.bin", "wb")) {
+                    for (uint32_t i = 0; i < len; ++i) std::fputc(Memory::Read8(addr + i), f);
+                    std::fclose(f);
+                }
+                std::fprintf(stderr, "[satbk] memdump %08X+%X\n", addr, len);
+            }
+        }
+    }
     if (SatbkGxTraceOn()) {
         std::fprintf(stderr, "[gxtrace] ==== CopyDisp frame %ld ====\n", g_copyFrames.load());
     }
@@ -193,3 +211,4 @@ extern "C" void SatbkDevTestQuad() {
     GXPosition3f32(0.f, 480.f, 0.f); GXColor4u8(255, 0, 0, 255);
     GXEnd();
 }
+

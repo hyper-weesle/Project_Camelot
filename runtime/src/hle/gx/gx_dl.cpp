@@ -4,6 +4,7 @@
 #include "isa/big_endian.h"
 
 #include <cstdlib>
+extern "C" bool SatbkGxTraceOn();
 #include <unordered_map>
 
 // The display-list scan cache validates a cached scan against the live guest
@@ -1290,6 +1291,7 @@ extern "C" void GxNotifyDisplayListMemoryWrite(uint32_t addr, uint32_t size) {
 }
 
 extern "C" void GX__CallDisplayList_80172f64(uint32_t listAddr, uint32_t nbytes) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] CallDL %08X %u\n", listAddr, nbytes); } }
     if (nbytes == 0 || listAddr == 0) return;
     try {
         const uint8_t* list = static_cast<const uint8_t*>(GuestToHostPtr(listAddr, nbytes));

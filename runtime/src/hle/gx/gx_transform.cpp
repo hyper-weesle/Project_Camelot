@@ -42,6 +42,7 @@ namespace {
 // exactly once inside gx::map_logical_viewport/map_logical_scissor. A prior VI origin/scale
 // transform double-transformed menu viewports and broke 640x480 overscan, so it was removed.
 extern "C" void GX__SetViewportJitter_80173378(float l, float t, float w, float h, float nz, float fz, uint32_t f) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] ViewportJitter %g %g %g %g %g %g f=%u\n", l, t, w, h, nz, fz, f); } }
     g_viewportState[0]=l; g_viewportState[1]=t; g_viewportState[2]=w; g_viewportState[3]=h; g_viewportState[4]=nz; g_viewportState[5]=fz;
     GXSetViewportJitter(l, t, w, h, nz, fz, f);
 }

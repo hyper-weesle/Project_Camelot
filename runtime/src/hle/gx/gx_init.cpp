@@ -1,5 +1,7 @@
 // gx_init.cpp - GX Initialization and FIFO Management
 #include "gx_internal.h"
+#include <cstdlib>
+#include <cstdio>
 #include "runtime_log.h"
 
 #include <cstdio>
@@ -166,6 +168,8 @@ PPC_NATIVE_OVERRIDE_VOID(80569F20, __GX__PEInit_8016ee14, (), ());
 // ============================================================================
 
 extern "C" void GX__BeginDisplayList_80172e00(uint32_t la, uint32_t s) {
+    { static const bool dllog = std::getenv("SATBK_DLLOG") != nullptr; static int n = 0;
+      if (dllog && n++ < 200) std::fprintf(stderr, "[dllog] BeginDisplayList %08X size=%u lr=%08X\n", la, s, TryGetCpuContext() ? TryGetCpuContext()->lr : 0u); }
     try {
         uint32_t gd = Memory::Read32(kGXDataPtrAddr);
         if (!gd) return;

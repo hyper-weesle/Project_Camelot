@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 
 namespace GxGuestWrite {
 namespace {
@@ -66,6 +67,7 @@ GuestRamAlias ResolveAlias(uint32_t guestBase, size_t size) noexcept {
 } // namespace
 
 void InstallAuroraHooks() {
+    if (std::getenv("SATBK_NOWRITETRACK")) return; // dev: always re-digest texture sources
     g_aliases[0] = ResolveAlias(Memory::kMem1CachedBase, Memory::kMem1Size);
     g_aliases[1] = ResolveAlias(Memory::kMem2CachedBase, Memory::kMem2Size);
     if (g_aliases[0].hostBase == nullptr || g_aliases[1].hostBase == nullptr) {

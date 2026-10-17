@@ -135,7 +135,32 @@ bool ShowStrapScreen() {
     }();
     return show;
 }
+bool HomeMenuAllowed() {
+    static const bool allowed = [] {
+        std::ifstream in(RuntimeConfigFile::ResolveConfigPath());
+        std::string line;
+        bool inGame = false;
+        while (std::getline(in, line)) {
+            const size_t first = line.find_first_not_of(" \t");
+            if (first == std::string::npos || line[first] == '#') {
+                continue;
+            }
+            if (line[first] == '[') {
+                inGame = line.compare(first, 6, "[game]") == 0;
+                continue;
+            }
+            if (inGame && line.compare(first, 9, "home_menu") == 0) {
+                return line.find("true") != std::string::npos;
+            }
+        }
+        return false;
+    }();
+    return allowed;
+}
 } // namespace
+
+// The Wii HOME menu is off unless Config.toml [game] home_menu = true (launcher: Controls page).
+extern "C" bool SatbkHomeMenuAllowed() { return HomeMenuAllowed(); }
 
 extern "C" void SatbkStrapUpdate(CpuContext* ctx) {
     if (ShowStrapScreen()) {
@@ -154,3 +179,13 @@ extern "C" void SatbkStrapUpdate(CpuContext* ctx) {
     }
 }
 REGISTER_NATIVE_FUNCTION_AS(0x8034A0A0, SatbkStrapUpdate, "SatbkStrapUpdate");
+
+// --- Start on the title screen --------------------------------------------------------------
+// The title screen asks for A+B held together. It is the only screen that plays titleloop.sfd
+// from its first byte, so starting that movie arms a one-shot "Start = A+B"; it disarms once
+// used, or once A+B were pressed for real (the file-select menu shares the same movie).
+#include <atomic>
+namespace { std::atomic<bool> s_titlePromptArmed{false}; }
+extern "C" void SatbkTitlePromptArm() { s_titlePromptArmed.store(true); std::fprintf(stderr, "[satbk] title prompt: Start = A+B\n"); }
+extern "C" bool SatbkTitlePromptArmed() { return s_titlePromptArmed.load(); }
+extern "C" void SatbkTitlePromptDisarm() { if (s_titlePromptArmed.exchange(false)) std::fprintf(stderr, "[satbk] title prompt done\n"); }

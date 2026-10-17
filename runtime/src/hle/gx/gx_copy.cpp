@@ -56,7 +56,7 @@ void InvalidateEfbCopyDestinationsForRange(uint32_t addr, uint32_t size) {
              it != g_efbCopyDestinations.end() && static_cast<uint64_t>(it->first) < dirtyEnd;) {
             const uint64_t copyStart = it->first;
             const uint64_t copyEnd = copyStart + it->second;
-            if (dirtyEnd <= copyStart || dirtyStart >= copyEnd) {
+            if (dirtyEnd <= copyStart || dirtyStart >= copyEnd || it->second >= 512u * 448u * 2u) {
                 ++it;
                 continue;
             }
@@ -155,6 +155,7 @@ PPC_NATIVE_OVERRIDE_VOID(8056AE84, GX__CopyDisp_8016fc38, (uint32_t da, uint32_t
 
 
 extern "C" void GX__CopyTex_8016fd74(uint32_t da, uint32_t c) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] CopyTex %08X clear=%u\n", da, c); } }
     EnsureAuroraFrameActive();
     {
         static const bool texlog = std::getenv("SATBK_TEXLOG") != nullptr;

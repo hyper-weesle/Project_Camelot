@@ -68,6 +68,7 @@ PPC_NATIVE_OVERRIDE_VOID(8056DA74, GX__SetDstAlpha_8017295c, (uint32_t en, uint3
 // ============================================================================
 
 extern "C" void GX__SetFog_801722cc(uint32_t t, float sz, float ez, float nz, float fz, uint32_t cp) {
+    { if (SatbkGxTraceOn()) { std::fprintf(stderr, "[gxtrace] SetFog t=%u sz=%g ez=%g nz=%g fz=%g\n", t, sz, ez, nz, fz); } }
     GXSetFog((GXFogType)t, sz, ez, nz, fz, DecodeGxColor(Memory::Read32(cp)));
 }
 PPC_NATIVE_OVERRIDE_VOID(8056D3E4, GX__SetFog_801722cc, (uint32_t t, float sz, float ez, float nz, float fz, uint32_t cp), (t, sz, ez, nz, fz, cp));
