@@ -23,6 +23,10 @@
 // Default keyboard layout (port 1, rebindable in the F10 menu like any GameCube binding):
 //      WASD move, Space jump (A), J slash (X), K thrust (Y), L = B, Left Shift guard (Nunchuk Z),
 //      E = Nunchuk C, Q = Nunchuk shake, Enter = +, arrow keys = D-pad, I/O = 1/2 (C-stick), M = -.
+#include <map>
+#include <fstream>
+#include <cstdio>
+#include "runtime_config.h"
 #include "hle_stubs.h"
 #include "input_bindings.h"
 #include "memory.h"
@@ -74,6 +78,83 @@ std::array<ChannelState, 4> g_channels{};
 std::array<PADStatus, PAD_CHANMAX> g_pad{};
 uint64_t g_padSampleTick = 0;
 
+// Keyboard layout. Config.toml [keyboard] (written by the launcher) overrides any entry; values
+// are SDL scancode names ("Space", "Left Shift", "J", ...), "" or "none" for unbound.
+struct KeyDefault {
+    const char* key;
+    SDL_Scancode scancode;
+};
+constexpr KeyDefault kDefaultButtonKeys[PAD_BUTTON_COUNT] = {
+    {"a", SDL_SCANCODE_SPACE},      {"b", SDL_SCANCODE_L},        {"x", SDL_SCANCODE_J},
+    {"y", SDL_SCANCODE_K},          {"start", SDL_SCANCODE_RETURN}, {"z", SDL_SCANCODE_Q},
+    {"l", SDL_SCANCODE_LSHIFT},     {"r", SDL_SCANCODE_E},        {"up", SDL_SCANCODE_UP},
+    {"down", SDL_SCANCODE_DOWN},    {"left", SDL_SCANCODE_LEFT},  {"right", SDL_SCANCODE_RIGHT},
+};
+constexpr PADButton kButtonOrder[PAD_BUTTON_COUNT] = {
+    PAD_BUTTON_A, PAD_BUTTON_B, PAD_BUTTON_X, PAD_BUTTON_Y, PAD_BUTTON_START, PAD_TRIGGER_Z,
+    PAD_TRIGGER_L, PAD_TRIGGER_R, PAD_BUTTON_UP, PAD_BUTTON_DOWN, PAD_BUTTON_LEFT, PAD_BUTTON_RIGHT,
+};
+struct AxisDefault {
+    const char* key;
+    SDL_Scancode scancode;
+    PADAxis axis;
+};
+constexpr AxisDefault kDefaultAxisKeys[8] = {
+    {"stick_right", SDL_SCANCODE_D, PAD_AXIS_LEFT_X_POS},   {"stick_left", SDL_SCANCODE_A, PAD_AXIS_LEFT_X_NEG},
+    {"stick_up", SDL_SCANCODE_W, PAD_AXIS_LEFT_Y_POS},      {"stick_down", SDL_SCANCODE_S, PAD_AXIS_LEFT_Y_NEG},
+    {"cstick_right", SDL_SCANCODE_N, PAD_AXIS_RIGHT_X_POS}, {"cstick_left", SDL_SCANCODE_M, PAD_AXIS_RIGHT_X_NEG},
+    {"cstick_up", SDL_SCANCODE_I, PAD_AXIS_RIGHT_Y_POS},    {"cstick_down", SDL_SCANCODE_O, PAD_AXIS_RIGHT_Y_NEG},
+};
+
+// Minimal reader for the [keyboard] table: `name = "value"` lines.
+std::map<std::string, std::string> ReadKeyboardSection() {
+    std::map<std::string, std::string> out;
+    std::ifstream in(RuntimeConfigFile::ResolveConfigPath());
+    std::string line;
+    bool inSection = false;
+    while (std::getline(in, line)) {
+        const size_t first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line[first] == '#') {
+            continue;
+        }
+        if (line[first] == '[') {
+            inSection = line.compare(first, 10, "[keyboard]") == 0;
+            continue;
+        }
+        if (!inSection) {
+            continue;
+        }
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos) {
+            continue;
+        }
+        std::string key = line.substr(first, eq - first);
+        key.erase(key.find_last_not_of(" \t") + 1);
+        const size_t q1 = line.find('"', eq);
+        const size_t q2 = q1 == std::string::npos ? std::string::npos : line.find('"', q1 + 1);
+        if (q2 != std::string::npos) {
+            out[key] = line.substr(q1 + 1, q2 - q1 - 1);
+        }
+    }
+    return out;
+}
+
+SDL_Scancode ResolveKey(const std::map<std::string, std::string>& cfg, const char* key, SDL_Scancode fallback) {
+    const auto it = cfg.find(key);
+    if (it == cfg.end()) {
+        return fallback;
+    }
+    if (it->second.empty() || it->second == "none") {
+        return SDL_SCANCODE_UNKNOWN;
+    }
+    const SDL_Scancode sc = SDL_GetScancodeFromName(it->second.c_str());
+    if (sc == SDL_SCANCODE_UNKNOWN) {
+        std::fprintf(stderr, "[satbk] unknown key name '%s' for keyboard.%s\n", it->second.c_str(), key);
+        return fallback;
+    }
+    return sc;
+}
+
 void EnsurePadInitialized() {
     static bool done = false;
     if (done) {
@@ -81,23 +162,21 @@ void EnsurePadInitialized() {
     }
     done = true;
     PADInit(); // this game never calls the GameCube PAD library itself
+    const auto cfg = ReadKeyboardSection();
     u32 count = 0;
-    if (PADGetKeyButtonBindings(0, &count) == nullptr) {
-        PADKeyButtonBinding buttons[PAD_BUTTON_COUNT] = {
-            {SDL_SCANCODE_SPACE, PAD_BUTTON_A},   {SDL_SCANCODE_L, PAD_BUTTON_B},
-            {SDL_SCANCODE_J, PAD_BUTTON_X},       {SDL_SCANCODE_K, PAD_BUTTON_Y},
-            {SDL_SCANCODE_RETURN, PAD_BUTTON_START}, {SDL_SCANCODE_Q, PAD_TRIGGER_Z},
-            {SDL_SCANCODE_LSHIFT, PAD_TRIGGER_L}, {SDL_SCANCODE_E, PAD_TRIGGER_R},
-            {SDL_SCANCODE_UP, PAD_BUTTON_UP},     {SDL_SCANCODE_DOWN, PAD_BUTTON_DOWN},
-            {SDL_SCANCODE_LEFT, PAD_BUTTON_LEFT}, {SDL_SCANCODE_RIGHT, PAD_BUTTON_RIGHT},
-        };
-        PADKeyAxisBinding axes[PAD_AXIS_COUNT] = {
-            {SDL_SCANCODE_D, PAD_AXIS_LEFT_X_POS, 100}, {SDL_SCANCODE_A, PAD_AXIS_LEFT_X_NEG, 100},
-            {SDL_SCANCODE_W, PAD_AXIS_LEFT_Y_POS, 100}, {SDL_SCANCODE_S, PAD_AXIS_LEFT_Y_NEG, 100},
-            {SDL_SCANCODE_N, PAD_AXIS_RIGHT_X_POS, 100}, {SDL_SCANCODE_M, PAD_AXIS_RIGHT_X_NEG, 100},
-            {SDL_SCANCODE_I, PAD_AXIS_RIGHT_Y_POS, 100}, {SDL_SCANCODE_O, PAD_AXIS_RIGHT_Y_NEG, 100},
-            {PAD_KEY_INVALID, PAD_AXIS_TRIGGER_L, 0},    {PAD_KEY_INVALID, PAD_AXIS_TRIGGER_R, 0},
-        };
+    if (!cfg.empty() || PADGetKeyButtonBindings(0, &count) == nullptr) {
+        PADKeyButtonBinding buttons[PAD_BUTTON_COUNT];
+        for (size_t i = 0; i < PAD_BUTTON_COUNT; ++i) {
+            const SDL_Scancode sc = ResolveKey(cfg, kDefaultButtonKeys[i].key, kDefaultButtonKeys[i].scancode);
+            buttons[i] = {sc == SDL_SCANCODE_UNKNOWN ? PAD_KEY_INVALID : static_cast<s32>(sc), kButtonOrder[i]};
+        }
+        PADKeyAxisBinding axes[PAD_AXIS_COUNT];
+        for (size_t i = 0; i < 8; ++i) {
+            const SDL_Scancode sc = ResolveKey(cfg, kDefaultAxisKeys[i].key, kDefaultAxisKeys[i].scancode);
+            axes[i] = {sc == SDL_SCANCODE_UNKNOWN ? PAD_KEY_INVALID : static_cast<s32>(sc), kDefaultAxisKeys[i].axis, 100};
+        }
+        axes[8] = {PAD_KEY_INVALID, PAD_AXIS_TRIGGER_L, 0};
+        axes[9] = {PAD_KEY_INVALID, PAD_AXIS_TRIGGER_R, 0};
         PADSetKeyButtonBindings(0, buttons);
         PADSetKeyAxisBindings(0, axes);
         PADSetKeyboardActive(0, TRUE);

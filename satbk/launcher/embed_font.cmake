@@ -1,0 +1,6 @@
+file(READ "${INPUT}" data HEX)
+string(LENGTH "${data}" hexLength)
+math(EXPR size "${hexLength} / 2")
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${data}")
+string(REGEX REPLACE "((0x[0-9a-f][0-9a-f],){32})" "\\1\n" bytes "${bytes}")
+file(WRITE "${OUTPUT}" "#pragma once\n// Generated from ${INPUT}\nstatic const unsigned char kLauncherFont[] = {\n${bytes}\n};\nstatic const int kLauncherFontSize = ${size};\n")
