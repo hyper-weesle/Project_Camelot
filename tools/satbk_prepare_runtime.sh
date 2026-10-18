@@ -12,7 +12,7 @@ git archive "${UPSTREAM_REF:-bd219e3}" runtime/src runtime/include | tar -x -C "
 python3 tools/satbk_remap.py "$tmp/runtime/src" "$tmp/runtime/include"
 python3 tools/satbk_patches.py "$tmp/runtime"
 mkdir -p "$tmp/runtime/src/satbk"
-cp satbk/runtime_src/*.cpp "$tmp/runtime/src/satbk/"
+cp satbk/runtime_src/*.cpp satbk/runtime_src/*.inc "$tmp/runtime/src/satbk/"
 rsync -rc --delete "$tmp/runtime/src/" runtime/src/
 rsync -rc --delete "$tmp/runtime/include/" runtime/include/
 echo "runtime prepared"

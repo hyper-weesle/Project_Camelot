@@ -777,8 +777,10 @@ std::vector<TexturePatch>& texture_patches() {
 }
 absl::flat_hash_map<RuntimeTextureKey, gfx::TextureHandle> s_patchedTextures;
 
-std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
-  if (texture_patches().empty() || obj.data == nullptr || is_palette_format(obj.format()) || obj.mip_count() != 1) {
+std::optional<TextureHandle> find_texture_patch_impl(const GXTexObj_& obj, const GXTlutObj_* tlut) noexcept {
+  const bool palette = is_palette_format(obj.format());
+  if (texture_patches().empty() || obj.data == nullptr || obj.mip_count() != 1 || palette != (tlut != nullptr) ||
+      (tlut != nullptr && (tlut->data == nullptr || tlut->numEntries == 0))) {
     return std::nullopt;
   }
   const TexturePatch* match = nullptr;
@@ -791,7 +793,13 @@ std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
   if (match == nullptr) {
     return std::nullopt;
   }
-  const RuntimeTextureKey key = build_runtime_key(obj);
+  RuntimeTextureKey key{
+      .width = obj.width(), .height = obj.height(), .hasTlut = palette, .format = obj.format()};
+  key.textureHash = XXH64(obj.data, texture_base_level_size(obj), 0);
+  if (tlut != nullptr) {
+    // Patches match on the texture data only; the palette is part of the cache key.
+    key.tlutHash = XXH64(tlut->data, static_cast<size_t>(tlut->numEntries) * 2, tlut->format);
+  }
   const TexturePatch* patch = nullptr;
   for (const auto& p : texture_patches()) {
     if (p.textureHash == key.textureHash && p.width == key.width && p.height == key.height && p.format == key.format) {
@@ -806,7 +814,12 @@ std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
     return it->second;
   }
   const ArrayRef<uint8_t> texData{static_cast<const uint8_t*>(obj.data), texture_base_level_size(obj)};
-  ConvertedTexture pixels = convert_texture(obj.format(), obj.width(), obj.height(), 1, texData);
+  ConvertedTexture pixels =
+      tlut != nullptr
+          ? convert_texture_palette(obj.format(), obj.width(), obj.height(), 1, texData, tlut->format,
+                                    tlut->numEntries,
+                                    {static_cast<const uint8_t*>(tlut->data), static_cast<size_t>(tlut->numEntries) * 2})
+          : convert_texture(obj.format(), obj.width(), obj.height(), 1, texData);
   if (pixels.data.empty() || pixels.format != wgpu::TextureFormat::RGBA8Unorm ||
       pixels.data.size() != static_cast<size_t>(obj.width()) * obj.height() * 4u) {
     return std::nullopt;
@@ -840,6 +853,14 @@ std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
   }
   s_patchedTextures.emplace(key, handle);
   return handle;
+}
+
+std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
+  return find_texture_patch_impl(obj, nullptr);
+}
+
+std::optional<TextureHandle> find_palette_texture_patch(const GXTexObj_& obj, const GXTlutObj_& tlut) noexcept {
+  return find_texture_patch_impl(obj, &tlut);
 }
 
 std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept {
