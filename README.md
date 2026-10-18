@@ -36,6 +36,8 @@ Known gaps:
 
 - **Runs natively** at the internal resolution you pick, in a window or full screen, with an
   optional 16:9 mode.
+- **60 or 120 FPS** through GPU frame interpolation. The game itself still runs at its original
+  30 FPS, so gameplay speed and timing are untouched.
 - **Launcher** (`SonicBlackKnightLauncher.exe`) that checks and extracts your game data and
   starts the game. You can rebind every keyboard key and controller button there, with Xbox or
   PlayStation button icons, and change display and sound settings.

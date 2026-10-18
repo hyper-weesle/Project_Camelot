@@ -15,8 +15,8 @@ Getting started
                         test them. Changes are saved immediately. Controller
                         buttons are shown as Xbox or PlayStation icons (auto-
                         detected, or pick one at the top of the page).
-    Display & sound   - window mode, internal resolution, widescreen, FPS
-                        counter and volume.
+    Display & sound   - window mode, internal resolution, frame rate,
+                        widescreen, FPS counter and volume.
   You can still start SonicBlackKnight.exe directly, and Setup.bat still works
   for extracting the disc without the launcher.
 
@@ -41,6 +41,11 @@ In-game button prompts (menu footers, pause menu, title screen) show Xbox or
 PlayStation buttons to match the launcher's "Button icons" setting, and the
 confirm/cancel icons follow what you bound to Wii A and B. On "auto" the first
 connected controller decides; a Nintendo controller keeps the Wii prompts.
+
+Frame rate: the game runs at 30 FPS, like on the Wii. "60 FPS" or "120 FPS"
+on the Display & sound page adds GPU-interpolated in-between frames for
+smoother motion; gameplay speed and timing stay exactly the same. 120 needs a
+120 Hz or faster display. It can also be changed in game (F10 settings bar).
 
 The Wii HOME menu is turned off, so the HOME button (N / right stick right)
 does nothing. To turn it back on, tick "Allow the Wii HOME menu" on the
