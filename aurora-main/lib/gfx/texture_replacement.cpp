@@ -761,9 +761,93 @@ void load_tlut(const GXTlutObj* obj, uint32_t idx) noexcept {
   s_loadedTluts[idx] = {};
 }
 
+// Host-registered edits of specific game textures (see aurora_register_texture_patch). The game's
+// own pixels are decoded from guest memory, edited in place, and uploaded instead of the original:
+// nothing derived from the game ever has to be stored on disk.
+struct TexturePatch {
+  uint64_t textureHash;
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
+  void (*apply)(uint8_t* rgba, uint32_t width, uint32_t height);
+};
+std::vector<TexturePatch>& texture_patches() {
+  static std::vector<TexturePatch> patches; // registered from other TUs' static initializers
+  return patches;
+}
+absl::flat_hash_map<RuntimeTextureKey, gfx::TextureHandle> s_patchedTextures;
+
+std::optional<TextureHandle> find_texture_patch(const GXTexObj_& obj) noexcept {
+  if (texture_patches().empty() || obj.data == nullptr || is_palette_format(obj.format()) || obj.mip_count() != 1) {
+    return std::nullopt;
+  }
+  const TexturePatch* match = nullptr;
+  for (const auto& patch : texture_patches()) {
+    if (patch.width == obj.width() && patch.height == obj.height() && patch.format == obj.format()) {
+      match = &patch;
+      break;
+    }
+  }
+  if (match == nullptr) {
+    return std::nullopt;
+  }
+  const RuntimeTextureKey key = build_runtime_key(obj);
+  const TexturePatch* patch = nullptr;
+  for (const auto& p : texture_patches()) {
+    if (p.textureHash == key.textureHash && p.width == key.width && p.height == key.height && p.format == key.format) {
+      patch = &p;
+      break;
+    }
+  }
+  if (patch == nullptr) {
+    return std::nullopt;
+  }
+  if (const auto it = s_patchedTextures.find(key); it != s_patchedTextures.end()) {
+    return it->second;
+  }
+  const ArrayRef<uint8_t> texData{static_cast<const uint8_t*>(obj.data), texture_base_level_size(obj)};
+  ConvertedTexture pixels = convert_texture(obj.format(), obj.width(), obj.height(), 1, texData);
+  if (pixels.data.empty() || pixels.format != wgpu::TextureFormat::RGBA8Unorm ||
+      pixels.data.size() != static_cast<size_t>(obj.width()) * obj.height() * 4u) {
+    return std::nullopt;
+  }
+  patch->apply(pixels.data.data(), obj.width(), obj.height());
+
+  const auto label = fmt::format("TexturePatch {}", format_replacement_filename(key));
+  const wgpu::Extent3D size{.width = obj.width(), .height = obj.height(), .depthOrArrayLayers = 1};
+  const wgpu::TextureDescriptor textureDescriptor{
+      .label = label.c_str(),
+      .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
+      .dimension = wgpu::TextureDimension::e2D,
+      .size = size,
+      .format = wgpu::TextureFormat::RGBA8Unorm,
+      .mipLevelCount = 1,
+      .sampleCount = 1,
+  };
+  auto texture = g_device.CreateTexture(&textureDescriptor);
+  const wgpu::TextureViewDescriptor textureViewDescriptor{
+      .format = wgpu::TextureFormat::RGBA8Unorm,
+      .dimension = wgpu::TextureViewDimension::e2D,
+      .mipLevelCount = 1,
+  };
+  auto textureView = texture.CreateView(&textureViewDescriptor);
+  auto handle = std::make_shared<gfx::TextureRef>(std::move(texture), std::move(textureView), wgpu::TextureView{}, size,
+                                                  wgpu::TextureFormat::RGBA8Unorm, 1, gfx::InvalidTextureFormat);
+  handle->isReplacement = true;
+  gfx::write_texture(*handle, pixels.data);
+  if (s_patchedTextures.size() > 64) {
+    s_patchedTextures.clear();
+  }
+  s_patchedTextures.emplace(key, handle);
+  return handle;
+}
+
 std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept {
   ZoneScoped;
 
+  if (auto patched = find_texture_patch(obj)) {
+    return patched;
+  }
   if (!g_config.allowTextureReplacements) {
     return std::nullopt;
   }
@@ -798,3 +882,8 @@ std::string build_texture_replacement_name(const GXTexObj_& obj) noexcept {
 }
 
 } // namespace aurora::gfx::texture_replacement
+
+extern "C" void aurora_register_texture_patch(uint64_t textureHash, uint32_t width, uint32_t height, uint32_t format,
+                                              void (*apply)(uint8_t* rgba, uint32_t width, uint32_t height)) {
+  aurora::gfx::texture_replacement::texture_patches().push_back({textureHash, width, height, format, apply});
+}

@@ -105,6 +105,7 @@ extern "C" uint32_t g_dvdFstReservedSize;
 
 // Byte-wise copy into guest RAM plus the DMA notification the GX caches need.
 extern "C" void SatbkTitlePromptArm();
+extern "C" void SatbkTitlePromptDisarm();
 static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
     {
         static uint32_t wa = 0, wl = 0;
@@ -920,12 +921,12 @@ extern "C" int32_t DVDReadPrio_8015E834(uint32_t fileInfoPtr, uint32_t bufferPtr
     { static const bool dvdlog = std::getenv("SATBK_DVDLOG") != nullptr;
       if (dvdlog) std::fprintf(stderr, "[dvdlog] %s off=%X len=%X dest=%08X thread=%08X\n", HostPathText(entry.hostPath).c_str(), uOffset, uLength, bufferPtr, Memory::Read32(0x800000E4u));
       // A fresh start of the title movie (not its loop restart) means the title prompt is up.
-      static bool lastMovieWasTitle = false;
-      if (entry.hostPath.extension() == ".sfd") {
-          const bool isTitle = entry.hostPath.filename() == "titleloop.sfd";
-          if (isTitle && uOffset == 0 && !lastMovieWasTitle) SatbkTitlePromptArm();
-          lastMovieWasTitle = isTitle;
-      } }
+      // The title layout (adv_title_*.one) loading means the "PRESS A+B" prompt is coming up; the
+      // main menu layout (adv_main_menu_*.one) loading means the prompt was accepted.
+      const std::string fileName = entry.hostPath.filename().string();
+      if (uOffset == 0 && fileName.rfind("adv_title_", 0) == 0) SatbkTitlePromptArm();
+      if (uOffset == 0 && fileName.rfind("adv_main_menu_", 0) == 0) SatbkTitlePromptDisarm();
+      }
     CopyToGuestAsDma(bufferPtr, tempBuf.data(), uLength);
 
     Memory::Write32(fileInfoPtr + DVD_CB_OFFSET_TRANSFERRED, uLength);

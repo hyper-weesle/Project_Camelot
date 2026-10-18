@@ -658,6 +658,7 @@ for _root, _dirs, _files in os.walk('src/hle/gx'):
 patch('src/hle/storage/dvd.cpp', [
     ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
 ''', '''extern "C" void SatbkTitlePromptArm();
+extern "C" void SatbkTitlePromptDisarm();
 static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
 '''),
     ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
@@ -678,12 +679,12 @@ patch('src/hle/storage/dvd.cpp', [
     Memory::Write32(fileInfoPtr + DVD_CB_OFFSET_TRANSFERRED, uLength);''', '''    { static const bool dvdlog = std::getenv("SATBK_DVDLOG") != nullptr;
       if (dvdlog) std::fprintf(stderr, "[dvdlog] %s off=%X len=%X dest=%08X thread=%08X\\n", HostPathText(entry.hostPath).c_str(), uOffset, uLength, bufferPtr, Memory::Read32(0x800000E4u));
       // A fresh start of the title movie (not its loop restart) means the title prompt is up.
-      static bool lastMovieWasTitle = false;
-      if (entry.hostPath.extension() == ".sfd") {
-          const bool isTitle = entry.hostPath.filename() == "titleloop.sfd";
-          if (isTitle && uOffset == 0 && !lastMovieWasTitle) SatbkTitlePromptArm();
-          lastMovieWasTitle = isTitle;
-      } }
+      // The title layout (adv_title_*.one) loading means the "PRESS A+B" prompt is coming up; the
+      // main menu layout (adv_main_menu_*.one) loading means the prompt was accepted.
+      const std::string fileName = entry.hostPath.filename().string();
+      if (uOffset == 0 && fileName.rfind("adv_title_", 0) == 0) SatbkTitlePromptArm();
+      if (uOffset == 0 && fileName.rfind("adv_main_menu_", 0) == 0) SatbkTitlePromptDisarm();
+      }
     CopyToGuestAsDma(bufferPtr, tempBuf.data(), uLength);
 
     Memory::Write32(fileInfoPtr + DVD_CB_OFFSET_TRANSFERRED, uLength);'''),

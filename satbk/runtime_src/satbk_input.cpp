@@ -352,17 +352,10 @@ bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
     bool autoSwing = false;
     if (chan == 0) {
         hold |= AutoPressButtons(autoSwing);
-        // Title screen: Start stands in for the A+B the game asks for.
-        static bool titleStartHeld = false;
-        if ((hold & (kBtnA | kBtnB)) == (kBtnA | kBtnB) && !titleStartHeld) {
-            SatbkTitlePromptDisarm();
-        }
-        if ((hold & kBtnPlus) && (titleStartHeld || SatbkTitlePromptArmed())) {
-            titleStartHeld = true;
+        // Title screen: Start stands in for the A+B the game asks for, until the main menu loads.
+        if ((hold & kBtnPlus) && SatbkTitlePromptArmed()) {
             hold = (hold & ~kBtnPlus) | kBtnA | kBtnB;
-        } else if (titleStartHeld) {
-            titleStartHeld = false;
-            SatbkTitlePromptDisarm();
+            static int n = 0; if (std::getenv("SATBK_DVDLOG") && n++ % 30 == 0) std::fprintf(stderr, "[satbk] injecting A+B\n");
         }
     }
     if (StepGesture(st.swing, !blocked && ((b & PAD_BUTTON_X) || autoSwing), 8)) {
