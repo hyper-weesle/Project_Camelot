@@ -1,262 +1,130 @@
-<img width="4190" height="1232" alt="wiicomplogofinalfinalfinalev2MADEBY_INKWRECK_plzcredit" src="https://github.com/user-attachments/assets/df7a3f2e-5336-479a-b4c0-968dd578726d" />
+# Project Camelot
 
-# WiiCompiled
+**A native PC port of _Sonic and the Black Knight_ (Wii, 2009), made with static recompilation.**
 
-<p align="center">
-  <a href="https://github.com/patchzyy/Wiicompiled/releases"><img alt="Windows 10 / 11, x64" src="https://img.shields.io/badge/Windows-10%20%2F%2011%20%C2%B7%20x64-0078D4"></a>
-  <a href="https://github.com/patchzyy/Wiicompiled/releases"><img alt="Linux, x64 / ARM64" src="https://img.shields.io/badge/Linux-x64%20%2F%20ARM64-FCC624?logo=linux&amp;logoColor=white"></a>
-  <a href="https://github.com/patchzyy/Wiicompiled/releases"><img alt="macOS 14+, Apple Silicon" src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20Silicon-0A84FF?logo=apple&amp;logoColor=white"></a>
-</p>
-<p align="center">
-  <a href="#building-from-source"><img alt="PowerPC static recompilation" src="https://img.shields.io/badge/PowerPC-static%20recompilation-FF9F0A"></a>
-  <a href="#retro-rewind"><img alt="Retro Rewind supported" src="https://img.shields.io/badge/Retro%20Rewind-supported-FF375F"></a>
-  <a href="https://github.com/TeamWheelWizard/WheelWizard/releases"><img alt="Install with Wheel Wizard" src="https://img.shields.io/badge/install%20with-Wheel%20Wizard-8B5CF6"></a>
-  <a href="https://github.com/patchzyy/Wiicompiled/releases"><img alt="Total downloads" src="https://img.shields.io/github/downloads/patchzyy/Wiicompiled/total?color=00B8D9&amp;logo=github"></a>
-  <a href="LICENSE"><img alt="License: GPLv3" src="https://img.shields.io/badge/license-GPLv3-2EA44F?logo=gnu&amp;logoColor=white"></a>
-</p>
-
-A native PC port of Mario Kart Wii, made with static recompilation.
-
-There's no emulator in the loop, no interpreter, no JIT, no PowerPC
-anywhere at runtime.
+Project Camelot turns the game's PowerPC code into native x64 code ahead of time, then runs it
+on a PC reimplementation of the Wii's system software and graphics hardware. There is no
+emulator, no interpreter and no JIT: the game runs as an ordinary Windows program, with its own
+launcher for controls and display settings.
 
 > [!IMPORTANT]
-> There is no Nintendo code, no assets and no game data anywhere in this project or its releases.
-> You need your own legally dumped copy of the PAL version of the game. Setup only ships the
-> toolchain, the translation runs on your machine against your disc image, and nothing ever gets
-> uploaded.
-
-[What is a github, I just want to play](https://github.com/TeamWheelWizard/WheelWizard/releases/latest)
+> **This repository contains no game code, assets or data from Sonic and the Black Knight.**
+> To play, you need your own copy of the **USA release (game ID `RENE8P`)**, dumped from a disc
+> you own. The port extracts what it needs from your disc image on your machine, and it refuses
+> to start unless the game's executable matches the clean USA build.
 
 ---
 
-## What it does
+## Status
 
-**Unlocked framerate with interpolation.** 
-The original game is hard-locked to 60 fps. The runtime can generate interpolated frames in between, so on a
-120/144 Hz monitor things genuinely look smoother.
+Early, but playable. On the current build you can:
 
-> [!WARNING]
-> Interpolation is experimental right now and will show artifacts in specific scenarios.
+- boot past the SEGA logos and intro movies, reach the title screen, create and load saves;
+- watch story scenes and play the first stages with Sonic, through the loading screens and back
+  to the world map after quitting a stage;
+- play on keyboard or any controller SDL3 supports (Xbox, PlayStation, Steam Controller, ...).
 
-**Any aspect ratio you want.** 
-Drag the window bigger, wider, whatever, the camera adjusts
-live.
+Known gaps:
 
-**Native rendering via aurora.** 
-The graphics layer is built on
-[aurora](https://github.com/encounter/aurora). Aurora is a source-level GameCube & Wii compatibility layer.
+- the Wii Remote pointer isn't emulated yet, so screens that need pointing (like entering a name)
+  are awkward;
+- the planned "modern" 360° movement mode isn't written yet;
+- it has mainly been tested through the opening stages. Expect bugs further in, and please report
+  them.
 
-**High internal resolution.** 
-Play at several times the console's resolution.
+## What's different from the Wii version
 
-**Music ducking.** 
-Start playing something else, Spotify, a YouTube video, and
-the game automatically mutes its own music until the other audio stops. Optional, if you'd
-rather it didn't. Windows uses system media controls and Linux uses MPRIS players.
-On macOS 14.2 or later, this detects other apps with active audio output and excludes
-the game's own audio. Apps that keep an output stream running silently can keep
-game music muted even when nothing is audible.
+- **Runs natively** at the internal resolution you pick, in a window or full screen, with an
+  optional 16:9 mode.
+- **Launcher** (`SonicBlackKnightLauncher.exe`) that checks and extracts your game data and
+  starts the game. You can rebind every keyboard key and controller button there, with Xbox or
+  PlayStation button icons, and change display and sound settings.
+- **Sword motions are on buttons.** Slash, thrust, Nunchuk shake, guard and the rest each have
+  their own button, so no motion controls are needed.
+- **Start works on the title screen** in place of "Press A + B".
+- **The Wii Remote strap warning is skipped**, and the **Wii HOME menu is off** so it can't pop up
+  by accident. Both can be turned back on.
 
-**An in-game settings bar.** 
-Press **F10** while the game window has focus:
-- Internal resolution
-- FPS counter
-- MetalFX spatial upscaling on supported macOS GPUs
-- Controller assignment for all four ports
-- Full per-controller button mapping, including the bumpers
-- Dolphin-syntax input expressions and GCPadNew.ini import
-- Controller vibration on/off
-- Volume, instant mute, and the music ducking toggle
+## Playing
 
-Everything you change is saved to `Config.toml` on the spot and restored next launch.
+1. Run `SonicBlackKnightLauncher.exe`.
+2. On **Play**, pick your disc image (ISO, WBFS, RVZ, WIA, CISO or GCZ). The launcher extracts
+   the game files into a `GameData` folder next to the game (about 3.5 GB). Setup.bat does the
+   same thing without the launcher.
+3. Set up your controls on **Controls**, then press **Play**.
 
-**Dolphin-compatible input expressions.** 
-Each GameCube control can carry an expression in Dolphin's input syntax, with the same operators
-and the same functions.
-A Dolphin `GCPadNew.ini` can be imported directly from the F10 bar.
+Settings, saves and logs live in the `UserData` folder. The full player guide, including the
+default controls, is in [`satbk/release/README.txt`](satbk/release/README.txt).
 
-**Vibration toggle.** 
-Force feedback can be turned off for every port at once.
-The official Wii U / Switch GameCube adapter (WUP-028) works too; as with Dolphin, on Windows the
-adapter must be switched to the WinUSB driver once (Zadig).
-
-**Real Wii Remotes over Bluetooth.**
-Pair a Wii Remote with Windows (Settings > Bluetooth > Add device, press 1+2 or SYNC, leave the
-PIN empty)
-
-Known limitations of the Wii Remote path:
-- No IR pointer yet: menus are navigated with the D-pad and A (the game treats the remote as
-  pointing away from the screen).
-- Battery level is not reported to the game and the remote's speaker is not implemented.
-- Only the Wii Remote's own accelerometer is calibrated; the Nunchuk's uses SDL's fixed zero point.
-- The Classic Controller's L/R triggers reach the game as digital (full pull on click): SDL does not
-  expose their analog travel.
-- Turn the Wii Remote support off in that menu if you use a Mayflash DolphinBar, which already
-  presents the remote as a regular gamepad.
-
-## Requirements
-
-- Windows 10 or 11, 64-bit
-- GPU: GTX 1650 / RX 6400 / Arc A310 or higher
-- CPU: Intel Core i5-8400 / AMD Ryzen 5 2600 (4c/6c, ~3.5GHz+) or higher
-- About 20 GB of free disk space during installation (Final game size ~5 GB)
-- macOS 12 (Monterey) or later on Apple Silicon (`arm64`) or Intel (`x86_64-v3`); pre-Haswell Intel CPUs are unsupported
-- On macOS, a Metal-capable GPU and Apple Xcode Command Line Tools (Setup opens Apple's installer when they are missing)
-- A clean, unmodified **PAL `RMCP01`** disc image of Mario Kart Wii, dumped by you. ISO, GCM,
-  GCZ, CISO, WBFS, WIA and RVZ are accepted.
-
-> [!NOTE]
-> GPU/CPU minimums are set by driver support and D3D12/Vulkan feature requirements, not by the game's actual demands.
-
-Only the clean PAL revision will work. Anything else (other
-regions, patched executables) is rejected outright.
-
-> [!NOTE]
-> Nobody here will tell you where to get the game. Dumping your own disc is on you, and links to
-> game files won't be provided or tolerated.
-
-## Installing
-
-For an easy experience, use [Wheel Wizard](https://github.com/TeamWheelWizard/WheelWizard). Pick your clean PAL `RMCP01`
-image under Settings, turn on **WiiCompiled (beta)**, and hit install from the Home page.
-Wheel Wizard downloads the setup tool from this repo and walks you through install, updates and
-launching. The backend itself is deliberately command-line only, Wheel Wizard is a wrapper around it.
-
-### macOS
-
-Download `WiiCompiled-Setup.pkg` from this repository's Releases page and open it. The universal
-package selects the appropriate bundled tools for the host architecture, supporting both Apple Silicon (`arm64`)
-and Intel (`x86_64`) Macs. It installs **WiiCompiled Setup** in Applications; open that app, choose
-your clean PAL `RMCP01` disc image, and select either the base game or Retro Rewind. For Retro Rewind, choose the `RetroRewind6` folder
-or its parent folder.
-
-Setup verifies and extracts the image locally, then translates and compiles the native app on your
-Mac. On a first run it may ask macOS to install Xcode Command Line Tools; complete Apple's installer,
-then open Setup again. When the build completes, Setup asks for administrator approval once to install
-`WiiCompiled.app` (and, if selected, `RetroRewind.app`) in `/Applications`.
-
-Setup opens Terminal while it works, so the extraction and build progress—and any error that needs
-reporting—remain visible.
-
-> [!CAUTION]
-> Only take builds from this repository's
-> [Releases](https://github.com/patchzyy/Wiicompiled/releases) page. If someone's sharing an
-> installer through Discord or some random download site, don't touch it!!
-
-## A note on related projects
-
-WiiCompiled, Wheel Wizard, Retro rewind and other related projects are developed
-**independently** and each has its **own** contribution rules and all have their own
-rules. What applies here does not automatically apply there,
-and vice versa. Check each project's own CONTRIBUTING and README files.
-
-## Retro Rewind
-
-[Retro Rewind](https://wiki.tockdom.com/wiki/Retro_Rewind), ZPL's Mario Kart Wii mod distribution,
-can be built as its **own static profile**: instead of applying `Code.pul` as runtime patches,
-the Kamek/Pulsar code is statically translated together with the base game into a separate native
-executable.
-
-Wheel Wizard drives this too.
+**Requirements:** Windows 10 or 11 (x64), a GPU with Vulkan or Direct3D 12, and the Microsoft
+Visual C++ 2015-2022 Redistributable (x64).
 
 ## Building from source
 
-Owning the game is still required even if you compile everything yourself.
+Builds are made on Linux. A native Linux build is used for development and testing, and the
+Windows x64 build is cross-compiled with [llvm-mingw](https://github.com/mstorsjo/llvm-mingw).
 
-You'll need: .NET 8 SDK, CMake, Ninja, and LLVM/Clang (the shipped build uses LLVM-MinGW targeting
-`x86-64-v3`).
+You need CMake, Ninja, Python 3, the .NET 8 SDK (for the translator) and a C++20 compiler. The
+game's files must already be extracted into `GameData/` at the repository root, because the
+translator reads the game's `main.dol` and the home-button module from your own copy.
 
-Build the translator:
+```sh
+# 1. Rebuild the runtime sources from upstream WiiCompiled + the SatBK patches
+./tools/satbk_prepare_runtime.sh
 
-```powershell
-dotnet build translator/Translator.sln -c Release
+# 2. Translate your main.dol into C++ (checks it is the clean USA build first)
+./tools/satbk_translate.sh
+
+# 3a. Linux build
+cmake -S runtime -B native-build -G Ninja
+ninja -C native-build WiiCompiled
+
+# 3b. Windows x64 cross-build
+cmake -S runtime -B win-build -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE=tools/mingw-toolchain.cmake -DLLVM_MINGW_ROOT=/path/to/llvm-mingw
+ninja -C win-build WiiCompiled.exe
 ```
 
-The default test suite needs no binaries and no host C++ compiler, so you can hack on the
-translator without any game data around.
+`tools/satbk_devloop.sh` runs steps 1-3a in one go (set `NO_TRANSLATE=1` to skip translation
+when no native override was added or removed). The launcher builds from `satbk/launcher/` with
+CMake and SDL3. The disc extractor in `satbk/extract/` is built against
+[nod](https://github.com/encounter/nod).
 
-For everything beyond that, feeding in your own `main.dol`/`StaticR.rel`, running the
-translation, generating the manifest and build graph, and compiling, see [`translator/README.md`](translator/README.md).
+### Where things live
 
-For a step-by-step guide on compiling both WiiCompiled and Retro Rewind from source on macOS (Apple Silicon), see the [macOS Build Guide](docs/building-macos.md).
-
-## FAQ
-
-**Is this an emulator?**
-No. Everything is compiled to native code before you ever press play. At runtime there's nothing
-emulating a Wii CPU or GPU.
-
-**Do you provide the game?**
-No. Don't ask. Nothing in this repo or any release contains Nintendo code or assets.
-
-**Why does setup take so long?**
-Because we **don't** ship the translated binary, most other recomp projects do, but we
-don't want to risk it right now, setup has to run a static recompiler over the whole game
-and then throw a C++ compiler at the result. It's a **one-time cost** on your machine.
-
-**Which game version works?**
-Clean PAL `RMCP01`. Other regions and modified executables are **rejected**. Translating
-them against the wrong manifest would give you a subtly broken game that's miserable to debug for us.
-
-**Can I recompile other GameCube/Wii games with it?**
-The translator itself handles DOLs and RELs generically, see
-`projects/examples/generic-dol.yml`. The catch is that a *playable* port also needs a runtime:
-audio, input, GX, everything the game touches.
-
-**The game crashed / stopped with an error.**
-Errors are deliberately loud instead of quietly swallowed. Send a report along with the run log
-from `%LOCALAPPDATA%\WiiCompiled\Logs`.
-
-**Will you fix original bugs?**
-Not in the base game, behavior identical to real hardware is the goal. Only report things where this port differs
-from the original game. As for Retro Rewind, some base-game behavior **is** patched, so if it differs from the
-base game, that's normal. If Retro Rewind behavior differs between Dolphin/Wii and WiiCompiled, open an issue on GitHub.
-
-**How accurate are the physics?**
-100% - this is proven by in-game ghosts. Since ghosts are replay files based on inputs rather
-than tracked positions, matching ghosts prove the physics match across Dolphin/Wii/WiiCompiled.
-
-**Is it done?**
-Not fully. The game is in a state where everything should be playable and the physics do match
-100% with the original game, but compatibility, rendering, networking and performance are all
-actively being worked on. If you do find an issue, we strongly encourage you to open one on
-GitHub so we can take a look at it.
-
-## AI usage
-AI coding tools were used during development of this project. 
-All translated output is verified against real hardware behavior and most importantly, physics accuracy is proven synced across Wii, Dolphin, and WiiCompiled (see FAQ). 
+| Path | What it is |
+| --- | --- |
+| `projects/satbk/` | Translation project for the game: function map and recompiler settings |
+| `satbk/runtime_src/` | Port-specific runtime code: SDK functions this game uses, input, data loading, dev tools |
+| `satbk/launcher/` | The launcher (SDL3 + Dear ImGui) |
+| `satbk/extract/` | Disc image extractor |
+| `satbk/release/` | Files that ship next to the game: `README.txt`, `Setup.bat` |
+| `tools/satbk_*.py`, `tools/satbk_*.sh` | Address remapping from Mario Kart Wii to this game, runtime patches and build scripts |
+| `runtime/`, `aurora-main/`, `translator/` | The WiiCompiled runtime, graphics layer and recompiler (from upstream, with the patches applied) |
 
 ## Credits
-- **inkwreck** - making the logo
-- **[aurora](https://github.com/encounter/aurora)** - the GX rendering/windowing backend this
-  project's whole graphics layer sits on. MIT licensed.
-- **[Dawn](https://dawn.googlesource.com/dawn)** - Google's WebGPU implementation, powering
-  aurora's Direct3D, Vulkan and OpenGL backends.
-- **[Dolphin Emulator](https://github.com/dolphin-emu/dolphin)** - an invaluable reference for Wii
-  hardware behavior during development, plus the source of the free DSP coefficient ROM and the
-  unmodified default WiiConnect24 bootstrap tree bundled with the runtime.
-- **[Retro Rewind](https://wiki.tockdom.com/wiki/Retro_Rewind)** by ZPL and team - the mod
-  distribution this project supports.
-- **[Wheel Wizard](https://github.com/TeamWheelWizard/WheelWizard)** - the mod manager this
-  project integrates with as a launch backend.
-- Everyone in the static recompilation community.
 
-Bundled third-party components and their licenses live in
-[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+Project Camelot is a fork of **[WiiCompiled](https://github.com/patchzyy/wiicompiled) by patchzyy
+and contributors**, a static recompilation of Mario Kart Wii. WiiCompiled provides everything
+this port is built on: the PowerPC-to-C++ translator, the native reimplementation of the Wii
+SDK and hardware, and the overall approach. Project Camelot retargets that work at a different
+game. The first commit in this repository is an import of WiiCompiled at upstream commit
+`bd219e3`, and WiiCompiled's original README is kept at
+[`docs/WiiCompiled-README.md`](docs/WiiCompiled-README.md). Please support the original project.
 
+Also built on:
 
-## License
+- **[aurora](https://github.com/encounter/aurora)** by encounter: the GameCube/Wii graphics and
+  system compatibility layer, running on Dawn/WebGPU.
+- **[nod](https://github.com/encounter/nod)** by encounter: reading Wii disc images.
+- **[SDL3](https://github.com/libsdl-org/SDL)** and **[Dear ImGui](https://github.com/ocornut/imgui)**
+  for the launcher, input and windowing.
+- The other third-party libraries listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-WiiCompiled is free software: you can redistribute it and/or modify it under the terms of the
-[GNU General Public License, version 3](LICENSE) as published by the Free Software Foundation.
+## License and disclaimer
 
-WiiCompiled is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
+Licensed under the GNU GPL v3, the same as WiiCompiled. See [LICENSE](LICENSE).
 
-Any mkwii distribution making use of WiiCompiled must be licensed under GPL v3.0.
-
-Not affiliated with, endorsed by, or associated with Nintendo. Mario Kart Wii is a trademark of
-Nintendo. No Nintendo intellectual property is contained in, distributed with, or obtainable
-through this project.
+Project Camelot is a non-commercial fan project. It is not affiliated with, endorsed by or
+sponsored by SEGA or Nintendo. _Sonic and the Black Knight_ and Sonic the Hedgehog are trademarks
+of SEGA, and Wii is a trademark of Nintendo. No copyrighted game content is distributed here.
