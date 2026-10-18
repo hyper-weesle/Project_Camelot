@@ -1998,6 +1998,13 @@ void aurora_set_frame_interpolation_fps(uint32_t targetFps) {
   (void)targetFps;
 #endif
 }
+void aurora_set_guest_frame_retraces(uint32_t retraces) {
+#ifdef AURORA_ENABLE_GX
+  aurora::gx::set_guest_frame_retraces(retraces);
+#else
+  (void)retraces;
+#endif
+}
 uint32_t aurora_get_frame_interpolation_fps() {
 #ifdef AURORA_ENABLE_GX
   return aurora::gx::frame_interpolation_fps();

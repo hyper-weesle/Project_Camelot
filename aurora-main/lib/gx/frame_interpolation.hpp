@@ -48,6 +48,8 @@ inline uint32_t frame_interpolation_fps() noexcept {
 inline bool frame_interpolation_active() noexcept { return frame_interpolation_fps() != 0; }
 
 void set_frame_interpolation_fps(uint32_t targetFps) noexcept;
+// Display refreshes per guest frame, measured by the host's VI pacer (2 for a 30 Hz game).
+void set_guest_frame_retraces(uint32_t retraces) noexcept;
 
 // Feedback for the adaptive slot controller: whether the producer met its
 // retrace boundary for the frame that just presented.

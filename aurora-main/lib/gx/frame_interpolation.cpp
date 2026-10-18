@@ -273,13 +273,21 @@ constexpr uint32_t kPacingWindowFrames = 60; // ~1 second of guest frames
 constexpr uint32_t kPacingReducePercent = 75;
 constexpr uint32_t kPacingRestorePercent = 25;
 
-uint32_t maximum_interpolation_samples() noexcept {
-  const uint32_t targetFps = frame_interpolation_fps();
+// Display refreshes per guest frame (1 = a 60 Hz game, 2 = a 30 Hz game). The VI pacer measures
+// it; the slots inserted per guest frame scale with it so the target rate is the presented rate.
+std::atomic_uint32_t s_guestFrameRetraces{1};
+
+uint32_t samples_for_target(uint32_t targetFps) noexcept {
   if (targetFps == 0) {
     return 0;
   }
-  return std::min(targetFps / 60 - 1, MaxInterpolatedFrames);
+  const uint32_t retraces = std::clamp(s_guestFrameRetraces.load(std::memory_order_acquire), 1u, 4u);
+  const uint32_t presentedPerGuestFrame = targetFps * retraces / 60;
+  return presentedPerGuestFrame <= 1 ? 0u : std::min(presentedPerGuestFrame - 1, MaxInterpolatedFrames);
 }
+
+
+uint32_t maximum_interpolation_samples() noexcept { return samples_for_target(frame_interpolation_fps()); }
 
 constexpr float kMinimumScale = 1.0e-5f;
 constexpr float kMaximumTranslationPerFrame = 1500.0f;
@@ -725,14 +733,20 @@ float snapshot_match_distance_squared(const FrameTransformEntry& previousEntry,
   return static_cast<float>(distance / static_cast<double>(matchedMatrices));
 }
 
+void set_guest_frame_retraces(uint32_t retraces) noexcept {
+  retraces = std::clamp(retraces, 1u, 4u);
+  if (s_guestFrameRetraces.exchange(retraces, std::memory_order_acq_rel) != retraces) {
+    s_interpolationSampleTarget.store(samples_for_target(frame_interpolation_fps()), std::memory_order_release);
+  }
+}
+
 void set_frame_interpolation_fps(uint32_t targetFps) noexcept {
-  if (targetFps != 120 && targetFps != 180 && targetFps != 240) {
+  if (targetFps != 60 && targetFps != 120 && targetFps != 180 && targetFps != 240) {
     targetFps = 0;
   }
   detail::g_frameInterpolationFps.store(targetFps, std::memory_order_release);
   // Start at the configured quality; the controller only ever backs off from here.
-  s_interpolationSampleTarget.store(targetFps == 0 ? 0u : std::min(targetFps / 60 - 1, MaxInterpolatedFrames),
-                                    std::memory_order_release);
+  s_interpolationSampleTarget.store(samples_for_target(targetFps), std::memory_order_release);
   s_dropInterpolationAtSeal.store(false, std::memory_order_release);
   s_pacingWindowFrames.store(0, std::memory_order_release);
   s_pacingWindowMisses.store(0, std::memory_order_release);

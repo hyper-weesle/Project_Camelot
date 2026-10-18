@@ -160,6 +160,8 @@ void aurora_set_present_schedule(uint64_t baseNanos, uint64_t intervalNanos);
 // Reports whether the frame about to be sealed met its display boundary. Interpolation sizes its
 // slot group from this, backing off after misses. Only paced presents may report.
 void aurora_report_producer_paced(bool paced);
+// Display refreshes per guest frame (1 for 60 Hz games, 2 for 30 Hz); scales the interpolated slots.
+void aurora_set_guest_frame_retraces(uint32_t retraces);
 void aurora_request_frame_capture(uint32_t frame, const char* outputPath);
 bool aurora_flush_efb_copies_to_ram();
 bool aurora_flush_efb_copy_to_ram(void* dest);

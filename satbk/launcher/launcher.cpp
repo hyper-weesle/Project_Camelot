@@ -1068,6 +1068,26 @@ void DrawDisplay(App& app) {
         SaveConfig(app);
     }
 
+    // The game runs at 30 FPS; 60 / 120 add interpolated in-between frames on the GPU (the game's
+    // own logic, physics and timing are unchanged).
+    static const int fpsValues[] = {0, 60, 120};
+    static const char* fpsLabels[] = {"30 FPS (original)", "60 FPS (interpolated)", "120 FPS (interpolated)"};
+    const double fpsSetting = app.config.GetNumber("video", "frame_interpolation_fps").value_or(0.0);
+    int fpsIndex = 0;
+    for (int i = 0; i < 3; ++i) {
+        if (static_cast<int>(fpsSetting + 0.5) == fpsValues[i]) {
+            fpsIndex = i;
+        }
+    }
+    if (ImGui::Combo("Frame rate", &fpsIndex, fpsLabels, 3)) {
+        app.config.SetRaw("video", "frame_interpolation_fps", std::to_string(fpsValues[fpsIndex]));
+        SaveConfig(app);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("The game itself runs at 30 FPS. 60 and 120 draw extra in-between frames\n"
+                          "for smoother motion; gameplay speed is unchanged. 120 needs a 120 Hz+ display.");
+    }
+
     bool widescreen = app.config.GetBool("video", "widescreen").value_or(true);
     if (ImGui::Checkbox("Widescreen (16:9)", &widescreen)) {
         app.config.SetBool("video", "widescreen", widescreen);

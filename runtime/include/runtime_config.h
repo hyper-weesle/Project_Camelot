@@ -189,7 +189,7 @@ inline bool IsSupportedDisplayMode(std::string_view value) {
 // 240 was offered by an early build and is no longer supported; a saved 240 is
 // migrated to 180 at the parse site.
 inline bool IsSupportedFrameInterpolationFps(uint32_t value) {
-    return value == 0 || value == 120 || value == 180;
+    return value == 0 || value == 60 || value == 120;
 }
 
 inline std::optional<std::filesystem::path> ExecutableDirectory() {
@@ -455,7 +455,7 @@ inline RuntimeUserConfig ParseConfigDocument(const toml::value& document) {
         config.displayMode = *value;
     }
     if (auto value = FindConfigUint(document, "video", "frame_interpolation_fps")) {
-        const uint32_t migrated = *value == 240u ? 180u : *value;
+        const uint32_t migrated = *value >= 180u ? 120u : *value;
         if (IsSupportedFrameInterpolationFps(migrated)) {
             config.frameInterpolationFps = migrated;
         }

@@ -743,3 +743,66 @@ patch('src/hle/gx/gx_init.cpp', [
     try {'''),
 ])
 
+
+# Dev: SATBK_PACELOG prints how many VI retraces each presented frame took (histogram per ~4 s),
+# to measure the game's own frame rate (SatBK paces gameplay to every second retrace).
+patch('src/hle/vi.cpp', [
+    ('''        const uint32_t retracesElapsed = retraceCount - s_lastPacedRetraceCount;
+''', '''        const uint32_t retracesElapsed = retraceCount - s_lastPacedRetraceCount;
+        { static const bool paceLog = std::getenv("SATBK_PACELOG") != nullptr;
+          if (paceLog) { static uint32_t hist[5] = {}; static uint32_t frames = 0;
+            hist[retracesElapsed < 4 ? retracesElapsed : 4]++;
+            if (++frames == 240) { std::fprintf(stderr, "[pacelog] retraces/frame 0:%u 1:%u 2:%u 3:%u 4+:%u\\n", hist[0], hist[1], hist[2], hist[3], hist[4]);
+              frames = 0; for (auto& h : hist) h = 0; } } }
+'''),
+])
+
+# Frame interpolation for a 30 Hz game. SatBK presents every second VI retrace, which the
+# MKW-tuned pacer read as a missed frame (so it never inserted slots). Measure the game's frame
+# period in retraces, treat that cadence as on time, spread the inserted slots over the whole
+# period, and offer 60 / 120 FPS targets (1 or 3 inserted frames per game frame).
+patch('src/hle/vi.cpp', [
+    ('''        aurora_report_producer_paced(retracesElapsed <= 1);''', '''        static uint32_t s_frameRetracesAvg16 = 16; // running average of retraces/frame, x16
+        if (retracesElapsed >= 1 && retracesElapsed <= 4) {
+            s_frameRetracesAvg16 = static_cast<uint32_t>(static_cast<int32_t>(s_frameRetracesAvg16) +
+                ((static_cast<int32_t>(retracesElapsed << 4) - static_cast<int32_t>(s_frameRetracesAvg16)) / 8));
+        }
+        const uint32_t guestRetraces = s_frameRetracesAvg16 >= 24 ? 2u : 1u;
+        aurora_set_guest_frame_retraces(guestRetraces);
+        aurora_report_producer_paced(retracesElapsed <= guestRetraces);'''),
+    ('''        uint64_t anchorNanos = baseNanos + intervalNanos;
+        if (s_lastPresentAnchorNanos != 0 && anchorNanos <= s_lastPresentAnchorNanos) {
+            anchorNanos = s_lastPresentAnchorNanos + intervalNanos;
+        }
+        s_lastPresentAnchorNanos = anchorNanos;
+        aurora_set_present_schedule(anchorNanos, intervalNanos);''', '''        // Only interpolated slots need the whole game-frame period; native pacing is unchanged.
+        const uint64_t frameIntervalNanos =
+            aurora_get_frame_interpolation_fps() != 0 ? intervalNanos * guestRetraces : intervalNanos;
+        uint64_t anchorNanos = baseNanos + intervalNanos;
+        if (s_lastPresentAnchorNanos != 0 && anchorNanos <= s_lastPresentAnchorNanos) {
+            anchorNanos = s_lastPresentAnchorNanos + frameIntervalNanos;
+        }
+        s_lastPresentAnchorNanos = anchorNanos;
+        aurora_set_present_schedule(anchorNanos, frameIntervalNanos);'''),
+])
+patch('include/runtime_config.h', [
+    ('''    return value == 0 || value == 120 || value == 180;''', '''    return value == 0 || value == 60 || value == 120;'''),
+    ('''        const uint32_t migrated = *value == 240u ? 180u : *value;''', '''        const uint32_t migrated = *value >= 180u ? 120u : *value;'''),
+])
+patch('src/settings_overlay.cpp', [
+    ('''    switch (RuntimeConfigFile::FrameInterpolationFps(0)) {
+    case 120:
+        return 1;
+    case 180:
+        return 2;''', '''    switch (RuntimeConfigFile::FrameInterpolationFps(0)) {
+    case 60:
+        return 1;
+    case 120:
+        return 2;'''),
+    ('''constexpr std::array<uint32_t, 3> kFrameInterpolationTargetFps{0, 120, 180};''',
+     '''constexpr std::array<uint32_t, 3> kFrameInterpolationTargetFps{0, 60, 120};'''),
+    ('''        "Off", "120 FPS", "180 FPS",''', '''        "Off (30 FPS)", "60 FPS", "120 FPS",'''),
+])
+patch('src/hle/vi.cpp', [
+    ('#include <aurora/aurora.h>\n', '#include <aurora/aurora.h>\n#include <aurora/gfx.h>\n'),
+])

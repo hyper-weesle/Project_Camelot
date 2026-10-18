@@ -89,9 +89,9 @@ bool g_audioMixWorker = RuntimeConfigFile::AudioMixWorkerEnabled(true);
 bool g_attenuateMusicWhenMediaPlays = RuntimeConfigFile::AttenuateMusicWhenMediaPlays(false);
 int g_frameInterpolationMode = [] {
     switch (RuntimeConfigFile::FrameInterpolationFps(0)) {
-    case 120:
+    case 60:
         return 1;
-    case 180:
+    case 120:
         return 2;
     default:
         return 0;
@@ -177,7 +177,7 @@ constexpr std::array<ResolutionItem, 8> kResolutions = {{
     {"3x", 3.0f}, {"4x", 4.0f}, {"6x", 6.0f}, {"8x", 8.0f},
 }};
 
-constexpr std::array<uint32_t, 3> kFrameInterpolationTargetFps{0, 120, 180};
+constexpr std::array<uint32_t, 3> kFrameInterpolationTargetFps{0, 60, 120};
 
 bool IsHighResolutionScale(float scale) {
     return std::fabs(scale - 6.0f) < 0.001f || std::fabs(scale - 8.0f) < 0.001f;
@@ -1076,7 +1076,7 @@ void DrawGraphicsSettings() {
             "rate (60 Hz, or the frame interpolation target).");
     }
     constexpr std::array<const char*, 3> kFrameInterpolationModes{
-        "Off", "120 FPS", "180 FPS",
+        "Off (30 FPS)", "60 FPS", "120 FPS",
     };
     const char* currentFrameInterpolationMode =
         kFrameInterpolationModes[static_cast<size_t>(g_frameInterpolationMode)];

@@ -29,6 +29,7 @@
 #endif
 
 #include <aurora/aurora.h>
+#include <aurora/gfx.h>
 
 // Forward declaration for OSWakeupThread - used to wake threads on VI retrace queue
 extern "C" void OSWakeupThread_HLE_801aaaa4(CpuContext* ctx);
@@ -545,6 +546,11 @@ void VI_HLE_PresentFrame(bool presentedXfb, bool paceToRetrace) {
         // but free-running late frames matches the previous pacer and keeps a
         // heavy scene at e.g. 50 fps instead of hard 30.
         const uint32_t retracesElapsed = retraceCount - s_lastPacedRetraceCount;
+        { static const bool paceLog = std::getenv("SATBK_PACELOG") != nullptr;
+          if (paceLog) { static uint32_t hist[5] = {}; static uint32_t frames = 0;
+            hist[retracesElapsed < 4 ? retracesElapsed : 4]++;
+            if (++frames == 240) { std::fprintf(stderr, "[pacelog] retraces/frame 0:%u 1:%u 2:%u 3:%u 4+:%u\n", hist[0], hist[1], hist[2], hist[3], hist[4]);
+              frames = 0; for (auto& h : hist) h = 0; } } }
         paceThisFrame = retracesElapsed == 0;
         s_lastPacedRetraceCount = retraceCount;
         // aurora_report_producer_paced needs a different signal than the pace-wait above: the guest
@@ -552,7 +558,14 @@ void VI_HLE_PresentFrame(bool presentedXfb, bool paceToRetrace) {
         // cadence, and zero only happens when production outruns VI. "Kept up" means <=1 retrace
         // elapsed; 2+ means a boundary was missed, so Aurora seals that frame without its interpolated
         // slots (a windowed backstop lowers the slot target only under sustained overload).
-        aurora_report_producer_paced(retracesElapsed <= 1);
+        static uint32_t s_frameRetracesAvg16 = 16; // running average of retraces/frame, x16
+        if (retracesElapsed >= 1 && retracesElapsed <= 4) {
+            s_frameRetracesAvg16 = static_cast<uint32_t>(static_cast<int32_t>(s_frameRetracesAvg16) +
+                ((static_cast<int32_t>(retracesElapsed << 4) - static_cast<int32_t>(s_frameRetracesAvg16)) / 8));
+        }
+        const uint32_t guestRetraces = s_frameRetracesAvg16 >= 24 ? 2u : 1u;
+        aurora_set_guest_frame_retraces(guestRetraces);
+        aurora_report_producer_paced(retracesElapsed <= guestRetraces);
         // Stamp the sealed frame's presentation schedule so Aurora paces interpolated slots against
         // this same VI timeline. Anchor to the NEXT retrace boundary, not the period just produced,
         // since slots anchored to the current period would already be expired by seal time. Encoding
@@ -560,12 +573,15 @@ void VI_HLE_PresentFrame(bool presentedXfb, bool paceToRetrace) {
         // same grid, so this stays the single cadence authority. Anchors must also be strictly
         // monotonic: two frames sealed before lastRetrace advances would collide on one boundary and
         // burst-present, so a colliding anchor steps onto the next grid point instead of repeating it.
+        // Only interpolated slots need the whole game-frame period; native pacing is unchanged.
+        const uint64_t frameIntervalNanos =
+            aurora_get_frame_interpolation_fps() != 0 ? intervalNanos * guestRetraces : intervalNanos;
         uint64_t anchorNanos = baseNanos + intervalNanos;
         if (s_lastPresentAnchorNanos != 0 && anchorNanos <= s_lastPresentAnchorNanos) {
-            anchorNanos = s_lastPresentAnchorNanos + intervalNanos;
+            anchorNanos = s_lastPresentAnchorNanos + frameIntervalNanos;
         }
         s_lastPresentAnchorNanos = anchorNanos;
-        aurora_set_present_schedule(anchorNanos, intervalNanos);
+        aurora_set_present_schedule(anchorNanos, frameIntervalNanos);
     } else {
         // Retrace-context presents (VI black, boot) have no display period of
         // their own to subdivide; present as soon as the frame is ready. The
