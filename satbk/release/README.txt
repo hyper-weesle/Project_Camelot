@@ -37,6 +37,11 @@ Default controls
   LT guard, RT = Nunchuk C, RB shake, Start = +, D-pad = D-pad,
   right stick up/down = 1/2, left/right = - / HOME.
 
+In-game button prompts (menu footers, pause menu, title screen) show Xbox or
+PlayStation buttons to match the launcher's "Button icons" setting, and the
+confirm/cancel icons follow what you bound to Wii A and B. On "auto" the first
+connected controller decides; a Nintendo controller keeps the Wii prompts.
+
 The Wii HOME menu is turned off, so the HOME button (N / right stick right)
 does nothing. To turn it back on, tick "Allow the Wii HOME menu" on the
 launcher's Controls page, or add  home_menu = true  under [game] in
