@@ -224,8 +224,43 @@ extern "C" void SatbkEditDvdRead(const char* name, uint32_t offset, void* data, 
     if (offset == 0 && std::strcmp(name, "stg001.txd") == 0) SatbkRamScan();
     static const char* target = std::getenv("SATBK_STAGE");
     if (std::getenv("SATBK_STGDUMP") && offset == 0 && std::strcmp(name, "actstgmission.txt") == 0) {
-        for (uint32_t a = 0x8072CC00u; a < 0x8072D000u; a += 16)
+        for (uint32_t a = 0x8072F400u; a < 0x8072F700u; a += 16)
             std::fprintf(stderr, "[stgdump] %08X %08X %08X %08X %08X\n", a, Memory::Read32(a), Memory::Read32(a + 4), Memory::Read32(a + 8), Memory::Read32(a + 12));
+    }
+    // Dev: SATBK_MISSION=N (with SATBK_STAGE): the stage's "mission 1" and "mission N" blocks in
+    // actstgmission.txt trade labels, so the first mission runs mission N's setup.
+    if (const char* mission = std::getenv("SATBK_MISSION"); mission && target && offset == 0 &&
+        std::strcmp(name, "actstgmission.txt") == 0 && std::strlen(mission) == 1 && mission[0] != '1') {
+        std::string text(static_cast<const char*>(data), length);
+        const size_t st = text.find(std::string("stage ") + target + " {");
+        const size_t stEnd = st == std::string::npos ? st : text.find("\nstage ", st + 1);
+        if (st != std::string::npos) {
+            const std::string one = "mission 1 {", other = std::string("mission ") + mission + " {";
+            const size_t a = text.find(one, st), b = text.find(other, st);
+            if (a != std::string::npos && b != std::string::npos && a < stEnd && b < stEnd) {
+                text.replace(a, one.size(), other);
+                text.replace(b, other.size(), one);
+                std::memcpy(data, text.data(), length);
+                std::fprintf(stderr, "[satbk] SATBK_MISSION: %s mission %s is now first\n", target, mission);
+            }
+        }
+    }
+    // Dev: SATBK_POKE=<hex addr>,<value>[;...] writes 32-bit values when actstgdesign.txt loads.
+    if (const char* poke = std::getenv("SATBK_POKE"); poke && offset == 0 && std::strcmp(name, "actstgdesign.txt") == 0) {
+        std::string list(poke);
+        size_t pos = 0;
+        while (pos < list.size()) {
+            const size_t end = std::min(list.find(';', pos), list.size());
+            const std::string item = list.substr(pos, end - pos);
+            const size_t comma = item.find(',');
+            if (comma != std::string::npos) {
+                const uint32_t addr = static_cast<uint32_t>(std::strtoul(item.c_str(), nullptr, 16));
+                const uint32_t value = static_cast<uint32_t>(std::strtoul(item.c_str() + comma + 1, nullptr, 0));
+                std::fprintf(stderr, "[satbk] SATBK_POKE %08X: %08X -> %08X\n", addr, Memory::Read32(addr), value);
+                Memory::Write32(addr, value);
+            }
+            pos = end + 1;
+        }
     }
     if (target && offset == 0 && std::strlen(target) == 6 &&
         (std::strcmp(name, "actstgdesign.txt") == 0 || std::strcmp(name, "actstgdata.txt") == 0 ||

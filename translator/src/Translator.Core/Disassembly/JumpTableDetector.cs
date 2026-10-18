@@ -21,6 +21,10 @@ internal static class JumpTableDetector
         out IReadOnlyList<uint> targets)
     {
         targets = Array.Empty<uint>();
+        if (TryRecognizeOverride(bctrAddress, functionStart, functionEnd, image, out targets))
+        {
+            return true;
+        }
         if (!indexByAddress.TryGetValue(bctrAddress, out var bctrIndex))
         {
             return false;
@@ -109,6 +113,57 @@ internal static class JumpTableDetector
         }
 
         targets = dedupList;
+        return true;
+    }
+
+    // Project-supplied jump tables for switch dispatches the pattern matcher cannot recognize
+    // (compares on cr1-cr7, table bases held in callee-saved registers, case blocks the function
+    // map split into separate functions). RECOMP_JUMP_TABLES names a text file of lines
+    // "<bctr address> <table address> <entry count>" (hex, hex, decimal; '#' comments).
+    // Only the cases inside the current function become local switch targets; any others are
+    // separate translated functions and are reached through the indirect-jump default.
+    private static Dictionary<uint, (uint Base, int Count)>? s_overrides;
+
+    private static Dictionary<uint, (uint Base, int Count)> Overrides()
+    {
+        if (s_overrides is not null) return s_overrides;
+        var map = new Dictionary<uint, (uint, int)>();
+        var path = Environment.GetEnvironmentVariable("RECOMP_JUMP_TABLES");
+        if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+        {
+            foreach (var raw in System.IO.File.ReadAllLines(path))
+            {
+                var line = raw.Split('#')[0].Trim();
+                if (line.Length == 0) continue;
+                var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 3) continue;
+                map[Convert.ToUInt32(parts[0], 16)] = (Convert.ToUInt32(parts[1], 16), int.Parse(parts[2]));
+            }
+        }
+        s_overrides = map;
+        return map;
+    }
+
+    private static bool TryRecognizeOverride(uint bctrAddress, uint functionStart, uint functionEnd, ProgramImage image,
+                                             out IReadOnlyList<uint> targets)
+    {
+        targets = Array.Empty<uint>();
+        if (!Overrides().TryGetValue(bctrAddress, out var table) || table.Count <= 0 || table.Count > MaxEntryCount)
+        {
+            return false;
+        }
+        if (Environment.GetEnvironmentVariable("RECOMP_JUMP_TABLES_DEBUG") is not null)
+            Console.Error.WriteLine($"[jt-override] bctr 0x{bctrAddress:X8} func 0x{functionStart:X8}-0x{functionEnd:X8}");
+        var list = new List<uint>();
+        var seen = new HashSet<uint>();
+        for (var i = 0; i < table.Count; i++)
+        {
+            if (!TryReadWord(image, unchecked(table.Base + (uint)(i * 4)), out var entry)) return false;
+            if (entry < functionStart || entry >= functionEnd || (entry & 3) != 0) continue;
+            if (seen.Add(entry)) list.Add(entry);
+        }
+        if (list.Count == 0) return false;
+        targets = list;
         return true;
     }
 

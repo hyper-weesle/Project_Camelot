@@ -1,0 +1,19 @@
+# Switch jump tables the translator's pattern matcher misses (see JumpTableDetector overrides).
+# <bctr address> <table address> <entry count>
+# Found by scanning main.dol for lwzx/mtctr/bctr dispatches whose case targets were not
+# translated; without these, those switches crash with "Missing indirect jump target".
+80090f04 806ba2d8 8
+80090f6c 806ba2f8 9
+802b6ee8 806d56b8 7
+803f30f0 806f0140 7
+803f3360 806f0108 7
+803f3524 806f00d0 7
+804c1f48 806f66f8 32
+805539ec 8070cff8 9
+80568c84 80713490 26
+80569108 807134f8 17
+805692bc 8071353c 17
+80569538 8071359c 21
+805696a8 80713580 7
+8056bb20 80713960 15
+805da42c 8071da2c 9

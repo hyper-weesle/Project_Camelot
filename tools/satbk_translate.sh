@@ -13,6 +13,8 @@ base_manifest_dir=$workspace/build/base
 shards=$generated/build_shards
 
 translator() { dotnet "$translator_dll" "$@"; }
+# Switch tables the translator cannot find on its own (JumpTableDetector override list).
+export RECOMP_JUMP_TABLES=$workspace/projects/satbk/jump_tables.txt
 
 dol=$workspace/GameData/sys/main.dol
 [[ -f "$dol" ]] || { echo "Missing $dol - run the extractor on your own disc image first." >&2; exit 1; }
