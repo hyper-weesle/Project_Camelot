@@ -3,6 +3,7 @@
 //   SATBK_SNAPSHOT_AT=<seconds>[,<seconds>...]  write MEM1/MEM2 snapshots (snapshot_<t>.bin[.mem2])
 //                                               into the working directory at those times.
 #include "system_bridge.h"
+#include "memory.h"
 
 #include <atomic>
 #include <unistd.h>
@@ -212,3 +213,54 @@ extern "C" void SatbkDevTestQuad() {
     GXEnd();
 }
 
+
+// Dev: SATBK_STAGE=stgNNN makes the first story mission (stg001) load stage NNN instead, for
+// checking that every stage loads. The selected stage is kept in the game's globals by name
+// ("stg001", plus its world "stg00" for enemy and effect sets); those copies are rewritten while
+// the stage tables are read, so the game then loads the target stage's own data.
+
+extern "C" void SatbkRamScan();
+extern "C" void SatbkEditDvdRead(const char* name, uint32_t offset, void* data, uint32_t length) {
+    if (offset == 0 && std::strcmp(name, "stg001.txd") == 0) SatbkRamScan();
+    static const char* target = std::getenv("SATBK_STAGE");
+    if (std::getenv("SATBK_STGDUMP") && offset == 0 && std::strcmp(name, "actstgmission.txt") == 0) {
+        for (uint32_t a = 0x8072CC00u; a < 0x8072D000u; a += 16)
+            std::fprintf(stderr, "[stgdump] %08X %08X %08X %08X %08X\n", a, Memory::Read32(a), Memory::Read32(a + 4), Memory::Read32(a + 8), Memory::Read32(a + 12));
+    }
+    if (target && offset == 0 && std::strlen(target) == 6 &&
+        (std::strcmp(name, "actstgdesign.txt") == 0 || std::strcmp(name, "actstgdata.txt") == 0 ||
+         std::strcmp(name, "actstgmission.txt") == 0 || std::strcmp(name, "hint_stg_eng.one") == 0)) {
+        // "stg001" (stage) and "stg00" (its world, used for enemy and effect sets) in the stage globals.
+        for (uint32_t a = 0x8072C000u; a < 0x80730000u; ++a) {
+            const uint8_t c0 = Memory::Read8(a);
+            if ((c0 != 's' && c0 != 'S') || Memory::Read8(a + 1) != 't' || Memory::Read8(a + 2) != 'g' ||
+                Memory::Read8(a + 3) != '0' || Memory::Read8(a + 4) != '0') continue;
+            int len = 0;
+            if (Memory::Read8(a + 5) == 0) len = 5;
+            else if (Memory::Read8(a + 5) == '1' && Memory::Read8(a + 6) == 0) len = 6;
+            if (len == 0 || (a > 0x8072C000u && Memory::Read8(a - 1) != 0)) continue;
+            for (int i = 1; i < len; ++i) Memory::Write8(a + i, static_cast<uint8_t>(target[i]));
+            std::fprintf(stderr, "[satbk] SATBK_STAGE: %s: %08X -> %.*s\n", name, a, len, target);
+        }
+    }
+}
+
+// Dev: SATBK_RAMSCAN=<text> lists guest addresses holding <text> when stg001.txd starts loading.
+extern "C" void SatbkRamScan() {
+    static const char* needle = std::getenv("SATBK_RAMSCAN");
+    if (needle == nullptr) return;
+    const size_t n = std::strlen(needle);
+    for (uint32_t base : {0x80000000u, 0x90000000u}) {
+        const uint32_t size = base == 0x80000000u ? 0x01800000u : 0x04000000u;
+        for (uint32_t a = base; a + n < base + size; ++a) {
+            if (Memory::Read8(a) != static_cast<uint8_t>(needle[0])) continue;
+            size_t k = 1;
+            while (k < n && Memory::Read8(a + k) == static_cast<uint8_t>(needle[k])) ++k;
+            if (k == n) {
+                char ctx[48] = {};
+                for (int i = 0; i < 40; ++i) { const uint8_t c = Memory::Read8(a + i); ctx[i] = c >= 32 && c < 127 ? c : '.'; }
+                std::fprintf(stderr, "[ramscan] %08X %s\n", a, ctx);
+            }
+        }
+    }
+}

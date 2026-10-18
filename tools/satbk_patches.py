@@ -659,6 +659,7 @@ patch('src/hle/storage/dvd.cpp', [
     ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
 ''', '''extern "C" void SatbkTitlePromptArm();
 extern "C" void SatbkTitlePromptDisarm();
+extern "C" void SatbkEditDvdRead(const char* name, uint32_t offset, void* data, uint32_t length);
 static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
 '''),
     ('''static void CopyToGuestAsDma(uint32_t dest, const uint8_t* data, size_t size) {
@@ -684,6 +685,21 @@ patch('src/hle/storage/dvd.cpp', [
       const std::string fileName = entry.hostPath.filename().string();
       if (uOffset == 0 && fileName.rfind("adv_title_", 0) == 0) SatbkTitlePromptArm();
       if (uOffset == 0 && fileName.rfind("adv_main_menu_", 0) == 0) SatbkTitlePromptDisarm();
+      SatbkEditDvdRead(fileName.c_str(), uOffset, tempBuf.data(), uLength);
+      // Dev: SATBK_DVDBT=<prefix> prints the guest call stack for reads of matching files.
+      static const char* bt = std::getenv("SATBK_DVDBT");
+      if (bt && uOffset == 0 && fileName.rfind(bt, 0) == 0) {
+          if (CpuContext* cpu = CurrentCpuContext()) {
+              std::fprintf(stderr, "[dvdbt] %s lr=%08X r3..r6=%08X %08X %08X %08X\\n", fileName.c_str(), cpu->lr, cpu->gpr[3], cpu->gpr[4], cpu->gpr[5], cpu->gpr[6]);
+              uint32_t sp = cpu->gpr[1];
+              for (int i = 0; i < 16 && sp >= 0x80000000u && sp < 0x81800000u; ++i) {
+                  const uint32_t next = Memory::Read32(sp);
+                  if (next < 0x80000000u || next >= 0x81800000u) break;
+                  std::fprintf(stderr, "[dvdbt]   %08X\\n", Memory::Read32(next + 4));
+                  sp = next;
+              }
+          }
+      }
       }
     CopyToGuestAsDma(bufferPtr, tempBuf.data(), uLength);
 
