@@ -22,15 +22,15 @@ Early, but playable. On the current build you can:
 - boot past the SEGA logos and intro movies, reach the title screen, create and load saves;
 - watch story scenes and play the first stages with Sonic, through the loading screens and back
   to the world map after quitting a stage;
-- play on keyboard or any controller SDL3 supports (Xbox, PlayStation, Steam Controller, ...).
+- play on keyboard or any controller SDL3 supports (Xbox, PlayStation, Steam Controller, ...);
+  every menu, name entry included, works with the stick or D-pad, so no pointer is needed;
+- load every story stage and battle arena, and fight the bosses (checked with automated runs).
 
 Known gaps:
 
-- the Wii Remote pointer isn't emulated yet, so screens that need pointing (like entering a name)
-  are awkward;
 - the planned "modern" 360° movement mode isn't written yet;
-- it has mainly been tested through the opening stages. Expect bugs further in, and please report
-  them.
+- no one has played it start to finish yet. Every stage loads and every boss fight starts, but
+  expect bugs deeper in, and please report them (the newest `UserData/Logs` folder helps).
 
 ## What's different from the Wii version
 
