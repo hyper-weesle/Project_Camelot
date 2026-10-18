@@ -41,6 +41,8 @@ Known gaps:
   PlayStation button icons, and change display and sound settings.
 - **Sword motions are on buttons.** Slash, thrust, Nunchuk shake, guard and the rest each have
   their own button, so no motion controls are needed.
+- **Xbox or PlayStation button prompts** in the menus, pause screen and title screen, matching
+  the launcher's button icon setting and your bindings.
 - **Start works on the title screen** in place of "Press A + B".
 - **The Wii Remote strap warning is skipped**, and the **Wii HOME menu is off** so it can't pop up
   by accident. Both can be turned back on.
