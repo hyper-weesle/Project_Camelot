@@ -31,8 +31,8 @@ Default controls
   Keyboard: WASD move (Nunchuk stick), Space jump (A), J sword slash,
   K thrust, L = B, Left Shift guard (Nunchuk Z), E = Nunchuk C,
   Q shake Nunchuk, Enter = +, arrow keys = D-pad, I / O = 1 / 2,
-  M = -, N = HOME.  On the title screen, Start (Enter, or Start on a
-  controller) works in place of "A + B".
+  M = -, N = HOME, Esc = pause (+).  On the title screen, Start (Enter,
+  or Start on a controller) works in place of "A + B".
   Controller: left stick moves, A jump, X slash, Y thrust, B = B,
   LT guard, RT = Nunchuk C, RB shake, Start = +, D-pad = D-pad,
   right stick up/down = 1/2, left/right = - / HOME.
@@ -46,6 +46,12 @@ Frame rate: the game runs at 30 FPS, like on the Wii. "60 FPS" or "120 FPS"
 on the Display & sound page adds GPU-interpolated in-between frames for
 smoother motion; gameplay speed and timing stay exactly the same. 120 needs a
 120 Hz or faster display. It can also be changed in game (F10 settings bar).
+
+Steam Controller: if Steam doesn't hand the controller to the game (the log
+says "pad port 0: none"), Steam is using its desktop layout, which turns the
+pad into a keyboard and mouse. Add SonicBlackKnight.exe to Steam as a
+non-Steam game and start it from Steam to get a controller layout.
+To quit, use the X on the F10 settings bar or close the window.
 
 The Wii HOME menu is turned off, so the HOME button (N / right stick right)
 does nothing. To turn it back on, tick "Allow the Wii HOME menu" on the
