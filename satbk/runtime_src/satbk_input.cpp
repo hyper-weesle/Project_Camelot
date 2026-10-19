@@ -323,6 +323,7 @@ void NunchukAcc(ChannelState& st, float acc[3]) {
     }
 }
 
+extern "C" void SatbkModernMovementFilter(float* x, float* y); // satbk_movement.cpp
 extern "C" bool g_satbkEscapeConsumed; // set by the settings overlay when it used an Escape press
 
 bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
@@ -385,6 +386,7 @@ bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
     s.hasNunchuk = true;
     s.stick[0] = blocked ? 0.0f : StickAxis(p.stickX);
     s.stick[1] = blocked ? 0.0f : StickAxis(p.stickY);
+    if (chan == 0 && !blocked) SatbkModernMovementFilter(&s.stick[0], &s.stick[1]);
     NunchukAcc(st, s.nunchukAcc);
     return true;
 }

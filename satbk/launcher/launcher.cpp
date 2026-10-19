@@ -859,6 +859,16 @@ void DrawControls(App& app) {
             SaveConfig(app);
         }
     }
+    bool modernMovement = app.config.GetBool("game", "modern_movement").value_or(false);
+    if (ImGui::Checkbox("Modern movement: hold back to turn around", &modernMovement)) {
+        app.config.SetBool("game", "modern_movement", modernMovement);
+        SaveConfig(app);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Off: the original controls (back = slow backstep).\n"
+                          "On: holding the stick back turns Sonic around to run back along the\n"
+                          "stage, with the camera following. Hold back again to turn around again.");
+    }
     bool homeMenu = app.config.GetBool("game", "home_menu").value_or(false);
     if (ImGui::Checkbox("Allow the Wii HOME menu", &homeMenu)) {
         app.config.SetBool("game", "home_menu", homeMenu);
