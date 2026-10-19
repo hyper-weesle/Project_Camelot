@@ -806,3 +806,26 @@ patch('src/settings_overlay.cpp', [
 patch('src/hle/vi.cpp', [
     ('#include <aurora/aurora.h>\n', '#include <aurora/aurora.h>\n#include <aurora/gfx.h>\n'),
 ])
+
+# Escape pauses the game (it reaches the game as Wii "+", see satbk_input.cpp) instead of opening
+# the "Quit the game?" prompt. Steam's desktop layout sends Escape for a Steam Controller's Start
+# button, which made Start quit. Quitting stays on the F10 bar's X and the window's close button.
+patch('src/settings_overlay.cpp', [
+    ('''            } else if (g_topBarVisible) {
+                SetTopBarVisible(false);
+            } else {
+                g_exitPromptOpen = true;
+            }
+            ApplyInputBlockState();''', '''            } else if (g_topBarVisible) {
+                SetTopBarVisible(false);
+            }
+            if (consumedByOverlay) g_satbkEscapeConsumed = true;
+            ApplyInputBlockState();'''),
+    ('''        if (!g_rebind.active && IsToggleKey(ev->sdl, SDL_SCANCODE_ESCAPE)) {
+            if (g_exitPromptOpen) {''', '''        if (!g_rebind.active && IsToggleKey(ev->sdl, SDL_SCANCODE_ESCAPE)) {
+            const bool consumedByOverlay = g_exitPromptOpen || g_topBarVisible;
+            if (g_exitPromptOpen) {'''),
+    ('''void DrawExitPrompt() {''', '''extern "C" { bool g_satbkEscapeConsumed = false; }
+
+void DrawExitPrompt() {'''),
+])

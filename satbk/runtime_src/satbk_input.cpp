@@ -36,6 +36,7 @@
 #include <dolphin/pad.h>
 
 #include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_keyboard.h>
 
 #include <algorithm>
 #include <array>
@@ -322,6 +323,8 @@ void NunchukAcc(ChannelState& st, float acc[3]) {
     }
 }
 
+extern "C" bool g_satbkEscapeConsumed; // set by the settings overlay when it used an Escape press
+
 bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
     RefreshPad();
     if (chan >= PAD_CHANMAX || g_pad[chan].err != PAD_ERR_NONE) {
@@ -336,6 +339,18 @@ bool VirtualSample(uint32_t chan, WiiRemoteInput::KpadSample& s) {
     if (b & PAD_BUTTON_A) hold |= kBtnA;
     if (b & PAD_BUTTON_B) hold |= kBtnB;
     if (b & PAD_BUTTON_START) hold |= kBtnPlus;
+    // Escape is the PC pause key, and Steam's desktop layout sends it for a Steam Controller's
+    // Start. A press that opened/closed the F10 bar or a prompt (input blocked) is ignored until
+    // the key is released.
+    {
+        static bool escapeHeld = false, escapeIgnored = false;
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        const bool down = chan == 0 && keys != nullptr && keys[SDL_SCANCODE_ESCAPE];
+        if (down && !escapeHeld) escapeIgnored = blocked || g_satbkEscapeConsumed;
+        if (!down) g_satbkEscapeConsumed = false;
+        escapeHeld = down;
+        if (down && !escapeIgnored && !blocked) hold |= kBtnPlus;
+    }
     if (b & PAD_TRIGGER_L || p.triggerL > 0x80) hold |= kBtnZ;
     if (b & PAD_TRIGGER_R || p.triggerR > 0x80) hold |= kBtnC;
     if (b & PAD_BUTTON_LEFT) hold |= kBtnLeft;

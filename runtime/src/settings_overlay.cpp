@@ -1273,6 +1273,8 @@ void UpdateBootShaderState() {
     }
 }
 
+extern "C" { bool g_satbkEscapeConsumed = false; }
+
 void DrawExitPrompt() {
     constexpr const char* kTitle = "Exit";
     if (g_exitPromptOpen && !ImGui::IsPopupOpen(kTitle)) ImGui::OpenPopup(kTitle);
@@ -1488,13 +1490,13 @@ void HandleEvents(const AuroraEvent* events) noexcept {
             RuntimeConfigFile::SetAudioMuted(g_audioMuted);
         }
         if (!g_rebind.active && IsToggleKey(ev->sdl, SDL_SCANCODE_ESCAPE)) {
+            const bool consumedByOverlay = g_exitPromptOpen || g_topBarVisible;
             if (g_exitPromptOpen) {
                 g_exitPromptOpen = false;
             } else if (g_topBarVisible) {
                 SetTopBarVisible(false);
-            } else {
-                g_exitPromptOpen = true;
             }
+            if (consumedByOverlay) g_satbkEscapeConsumed = true;
             ApplyInputBlockState();
         }
         if (IsMouseActivity(ev->sdl)) {
