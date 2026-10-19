@@ -28,7 +28,8 @@ Early, but playable. On the current build you can:
 
 Known gaps:
 
-- the planned "modern" 360° movement mode isn't written yet;
+- modern movement is a first step: holding back turns Sonic around on the stage's path; full free
+  360° movement in story stages isn't planned for now;
 - no one has played it start to finish yet. Every stage loads and every boss fight starts, but
   expect bugs deeper in, and please report them (the newest `UserData/Logs` folder helps).
 
@@ -45,6 +46,8 @@ Known gaps:
   their own button, so no motion controls are needed.
 - **Xbox or PlayStation button prompts** in the menus, pause screen and title screen, matching
   the launcher's button icon setting and your bindings.
+- **Optional modern movement**: hold the stick back to turn around and run back along the stage,
+  with the camera following (off by default, on the launcher's Controls page).
 - **Start works on the title screen** in place of "Press A + B".
 - **The Wii Remote strap warning is skipped**, and the **Wii HOME menu is off** so it can't pop up
   by accident. Both can be turned back on.

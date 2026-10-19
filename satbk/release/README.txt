@@ -37,6 +37,12 @@ Default controls
   LT guard, RT = Nunchuk C, RB shake, Start = +, D-pad = D-pad,
   right stick up/down = 1/2, left/right = - / HOME.
 
+Modern movement (off by default): tick "Modern movement: hold back to turn
+around" on the launcher's Controls page, or add  modern_movement = true  under
+[game] in UserData\Config.toml. Then holding the stick back turns Sonic around
+to run back along the stage, with the camera following; hold back again to turn
+around again. Off, back is the original slow backstep.
+
 In-game button prompts (menu footers, pause menu, title screen) show Xbox or
 PlayStation buttons to match the launcher's "Button icons" setting, and the
 confirm/cancel icons follow what you bound to Wii A and B. On "auto" the first
